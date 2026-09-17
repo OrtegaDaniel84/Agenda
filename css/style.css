@@ -1,0 +1,14 @@
+/* Bloquea la barra de desplazamiento interna */
+.fc .fc-scroller { overflow: hidden !important; }
+.fc .fc-daygrid-day-frame { min-height: 0 !important; }
+
+/* ELIMINA el espacio reservado para eventos en el mini-calendario */
+#mini-calendar .fc-daygrid-day-events,
+#mini-calendar .fc-daygrid-day-bottom {
+    display: none !important;
+    margin: 0 !important;
+}
+
+/* Reduce ligeramente el tamaño general para que respire mejor */
+#mini-calendar { font-size: 0.85rem; }
+.fc .fc-toolbar-title { font-size: 1.2rem !important; }

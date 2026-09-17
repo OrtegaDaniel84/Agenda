@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Agenda Web</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FullCalendar Core -->
+    <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.15/index.global.min.js"></script>
+    <link rel="stylesheet" href="./css/style.css">
+</head>
+<body class="bg-gray-100 p-4 h-screen font-sans box-border flex flex-col gap-2 overflow-hidden">
+    <!-- Bloque Superior (Header) -->
+    <header class="bg-white p-4 rounded shadow flex justify-between items-center shrink-0">
+        <h2 id="current-date-label" class="text-xl font-bold text-gray-800 capitalize">Cargando semana...</h2>
+        <button id="btn-settings" class="bg-blue-600 text-white px-4 py-2 rounded shadow hover:bg-blue-700 text-sm font-bold transition-colors">
+                ⚙️ Configurar Calendarios
+        </button>
+    </header>
+
+    <!-- Contenedor Principal -->
+    <div class="grid grid-cols-4 gap-2 flex-1 min-h-0">
+        <!-- Columna 1 -->
+        <div class="flex flex-col gap-2 h-full min-h-0">
+             <div id="calendar" class="bg-white p-4 rounded shadow flex-1 overflow-y-auto flex flex-col min-h-0">
+                <div id="annual-calendar" class="grid grid-cols-3 gap-3 text-xs"></div>
+            </div>
+        </div>
+
+        <!-- Columna 2 -->
+        <div class="flex flex-col gap-2 h-full min-h-0">
+            <div id="calendar" class="bg-white p-4 rounded shadow flex-1 overflow-hidden flex flex-col min-h-0">
+                <div id="mini-calendar" class="flex-1 min-h-0"></div>
+            </div>
+            <!-- Domingo -->
+            <div id="sunday" class="day-block bg-white p-4 rounded shadow flex-1 flex flex-col min-h-0">
+                <div class="text-lg font-bold border-b pb-1 mb-2 shrink-0">Domingo <span class="date-label text-sm text-gray-500 font-normal"></span>
+                </div>
+                <!-- overflow-y-auto aquí asegura el scroll solo cuando hay muchos eventos -->
+                <div class="events-list flex-1 overflow-y-auto flex flex-col pr-1"></div>
+            </div>
+        </div>
+
+        <!-- Columna 3 -->
+        <div class="flex flex-col gap-2 h-full min-h-0">
+            
+
+            <div id="monday" class="day-block bg-white p-4 rounded shadow flex-1 flex flex-col min-h-0">
+                <div class="text-lg font-bold border-b pb-1 mb-2 shrink-0">Lunes <span class="date-label text-sm text-gray-500 font-normal"></span>
+                </div>
+                <div class="events-list flex-1 overflow-y-auto flex flex-col pr-1"></div>
+            </div>
+            <div id="tuesday" class="day-block bg-white p-4 rounded shadow flex-1 flex flex-col min-h-0">
+                <div class="text-lg font-bold border-b pb-1 mb-2 shrink-0">Martes <span class="date-label text-sm text-gray-500 font-normal"></span>
+                </div>
+                <div class="events-list flex-1 overflow-y-auto flex flex-col pr-1"></div>
+            </div>
+            <div id="wednesday" class="day-block bg-white p-4 rounded shadow flex-1 flex flex-col min-h-0">
+                <div class="text-lg font-bold border-b pb-1 mb-2 shrink-0">Miércoles <span class="date-label text-sm text-gray-500 font-normal"></span>
+                </div>
+                <div class="events-list flex-1 overflow-y-auto flex flex-col pr-1"></div>
+            </div>
+        </div>
+
+        <!-- Columna 4 -->
+        <div class="flex flex-col gap-2 h-full min-h-0">
+            <div id="thursday" class="day-block bg-white p-4 rounded shadow flex-1 flex flex-col min-h-0">
+                <div class="text-lg font-bold border-b pb-1 mb-2 shrink-0">Jueves <span class="date-label text-sm text-gray-500 font-normal"></span>
+                </div>
+                <div class="events-list flex-1 overflow-y-auto flex flex-col pr-1"></div>
+            </div>
+            <div id="friday" class="day-block bg-white p-4 rounded shadow flex-1 flex flex-col min-h-0">
+                <div class="text-lg font-bold border-b pb-1 mb-2 shrink-0">Viernes <span class="date-label text-sm text-gray-500 font-normal"></span>
+                </div>
+                <div class="events-list flex-1 overflow-y-auto flex flex-col pr-1"></div>
+            </div>
+            <div id="saturday" class="day-block bg-white p-4 rounded shadow flex-1 flex flex-col min-h-0">
+                <div class="text-lg font-bold border-b pb-1 mb-2 shrink-0">Sábado <span class="date-label text-sm text-gray-500 font-normal"></span>
+                </div>
+                <div class="events-list flex-1 overflow-y-auto flex flex-col pr-1"></div>
+            </div>
+        </div>
+
+        <!-- Modal de Calendarios (se mantiene igual) -->
+        <div id="modal-calendars" class="hidden fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50">
+            <div class="bg-white p-6 rounded shadow-lg w-full max-w-md">
+                <h2 class="text-xl font-bold mb-4">Fuentes de Calendario</h2>
+                <form id="form-calendar" class="flex flex-col gap-3 mb-4">
+                    <input type="text" id="cal-title" placeholder="Título (ej: Trabajo)" class="border p-2 rounded" required />
+                    <div class="flex gap-2 items-center">
+                        <input type="color" id="cal-color" class="p-1 w-10 h-10 rounded border cursor-pointer" value="#3b82f6">
+                        <label class="text-sm">Color</label>
+                    </div>
+                    <input type="url" id="cal-url" placeholder="URL (ej: https://...)" class="border p-2 rounded" required />
+                    <button type="submit" class="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700">Añadir Calendario</button>
+                </form>
+                <h3 class="font-bold text-sm text-gray-600 mb-2">Calendarios Activos:</h3>
+                <ul id="list-calendars" class="mb-4 max-h-40 overflow-auto border-t border-b py-2 empty:hidden"></ul>
+                <button id="btn-close" class="bg-gray-500 text-white px-4 py-2 rounded hover:bg-gray-600 w-full mt-2">Cerrar</button>
+            </div>
+        </div>
+    </div>
+    <script src="./js/script.js"></script>
+</body>
+</html>
