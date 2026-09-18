@@ -58,8 +58,8 @@
 
             <!-- Columna 2: Mini Calendario Interactivo + Domingo -->
             <div class="col-12 col-md-6 col-xl-3 d-flex flex-column gap-3">
-                <!-- Mini Calendario -->
-                <div id="mini-calendar-card" class="card shadow-sm border-0 flex-grow-1 d-flex flex-column overflow-hidden">
+                <!-- Mini Calendario (Ajustado exactamente al mes sin espacio sobrante) -->
+                <div id="mini-calendar-card" class="card shadow-sm border-0 flex-shrink-0 d-flex flex-column">
                     <div class="card-header bg-white border-bottom-0 pt-2 pb-1 px-3 d-flex align-items-center justify-content-between flex-shrink-0">
                         <span class="fw-bold text-dark small">
                             <i class="bi bi-calendar2-month me-1 text-primary"></i> Calendario Mensual
@@ -68,7 +68,7 @@
                             Hoy
                         </button>
                     </div>
-                    <div class="card-body p-2 p-sm-3 pt-1 d-flex flex-column justify-content-center overflow-auto">
+                    <div class="card-body p-2 px-3 pt-0 pb-2">
                         <div id="mini-calendar" class="w-100"></div>
                     </div>
                 </div>

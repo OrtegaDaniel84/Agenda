@@ -66,8 +66,10 @@ body {
         flex: 0 0 calc((100% - 2rem) / 3) !important;
         max-height: calc((100% - 2rem) / 3) !important;
     }
+    /* El cuadrante del mes se ajusta estrictamente al contenido del mes, sin expandirse ni dejar blanco */
     #mini-calendar-card {
-        flex: 1 1 0 !important;
+        flex: 0 0 auto !important;
+        height: auto !important;
         min-height: 0 !important;
     }
 }
@@ -399,66 +401,132 @@ body {
 
 /* ==========================================================
    Adaptabilidad Responsive Dinámica por Pantalla y Contenedor
+   El Calendario Anual tiene como LÍMITE MÁXIMO 3 COLUMNAS.
+   Si la pantalla es grande, se escala en tamaño para mayor legibilidad.
    ========================================================== */
 
 /* 1. Contenedores muy angostos (< 260px): 2 columnas */
 @container annualcard (max-width: 259px) {
     .annual-months-grid {
-        grid-template-columns: repeat(2, 1fr);
+        grid-template-columns: repeat(2, 1fr) !important;
         gap: 0.35rem 0.25rem;
     }
 }
 
-/* 2. Ancho estándar en columnas (260px a 440px): 3 columnas (3x4 = 12 meses) */
-@container annualcard (min-width: 260px) and (max-width: 440px) {
+/* 2. Ancho estándar (260px a 340px): 3 columnas compactas */
+@container annualcard (min-width: 260px) and (max-width: 340px) {
     .annual-months-grid {
-        grid-template-columns: repeat(3, 1fr);
-        gap: 0.35rem 0.35rem;
+        grid-template-columns: repeat(3, 1fr) !important;
+        gap: 0.45rem 0.35rem;
     }
 }
 
-/* 3. Ancho medio / expandido (441px a 680px): 4 columnas (4x3 = 4 trimestres ordenados) */
-@container annualcard (min-width: 441px) and (max-width: 680px) {
+/* 3. Pantalla / Contenedor Mediano (341px a 420px): 3 columnas con elementos ampliados */
+@container annualcard (min-width: 341px) and (max-width: 420px) {
     .annual-months-grid {
-        grid-template-columns: repeat(4, 1fr);
-        gap: 0.4rem 0.45rem;
+        grid-template-columns: repeat(3, 1fr) !important;
+        gap: 0.65rem 0.5rem;
+    }
+    .annual-month-title {
+        font-size: 0.86rem;
+        margin-bottom: 3px;
+    }
+    .annual-days-header {
+        font-size: 0.7rem;
+        margin-bottom: 2px;
+    }
+    .annual-day-cell {
+        height: 20px;
+        width: 20px;
+        font-size: 0.72rem;
     }
 }
 
-/* 4. Ancho amplio (681px a 1050px): 6 columnas (6x2 = 2 semestres completos) */
-@container annualcard (min-width: 681px) and (max-width: 1050px) {
+/* 4. Pantalla / Contenedor Grande (421px a 520px): 3 columnas sustancialmente más grandes */
+@container annualcard (min-width: 421px) and (max-width: 520px) {
     .annual-months-grid {
-        grid-template-columns: repeat(6, 1fr);
-        gap: 0.45rem 0.6rem;
+        grid-template-columns: repeat(3, 1fr) !important;
+        gap: 0.85rem 0.65rem;
+    }
+    .annual-month-title {
+        font-size: 0.96rem;
+        margin-bottom: 4px;
+        font-weight: 800;
+    }
+    .annual-days-header {
+        font-size: 0.76rem;
+        margin-bottom: 3px;
+    }
+    .annual-days-grid {
+        row-gap: 2px;
+    }
+    .annual-day-cell {
+        height: 24px;
+        width: 24px;
+        font-size: 0.8rem;
     }
 }
 
-/* 5. Ultra amplio (> 1050px): 6 columnas con espaciado balanceado */
-@container annualcard (min-width: 1051px) {
+/* 5. Pantallas Extra Grandes / Ultra Anchas (> 520px): 3 columnas amplias y legibles */
+@container annualcard (min-width: 521px) {
     .annual-months-grid {
-        grid-template-columns: repeat(6, 1fr);
-        gap: 0.5rem 0.75rem;
+        grid-template-columns: repeat(3, 1fr) !important;
+        gap: 1.1rem 0.85rem;
+    }
+    .annual-month-title {
+        font-size: 1.08rem;
+        margin-bottom: 6px;
+        font-weight: 800;
+    }
+    .annual-days-header {
+        font-size: 0.84rem;
+        margin-bottom: 4px;
+    }
+    .annual-days-grid {
+        row-gap: 3px;
+    }
+    .annual-day-cell {
+        height: 28px;
+        width: 28px;
+        font-size: 0.86rem;
+        font-weight: 600;
     }
 }
 
-/* Reglas de respaldo mediante Media Queries clásicas */
-@media (max-width: 340px) {
+/* Reglas de respaldo mediante Media Queries clásicas (NUNCA más de 3 columnas) */
+@media (max-width: 279.98px) {
     .annual-months-grid {
-        grid-template-columns: repeat(2, 1fr);
+        grid-template-columns: repeat(2, 1fr) !important;
         gap: 0.3rem 0.2rem;
     }
 }
 
-@media (min-width: 576px) and (max-width: 767.98px) {
+@media (min-width: 1200px) {
     .annual-months-grid {
-        grid-template-columns: repeat(4, 1fr);
-        gap: 0.4rem 0.45rem;
+        grid-template-columns: repeat(3, 1fr) !important;
+    }
+    .annual-month-title {
+        font-size: 0.92rem;
+    }
+    .annual-day-cell {
+        height: 22px;
+        width: 22px;
+        font-size: 0.76rem;
     }
 }
 
-@media (min-width: 992px) and (max-width: 1199.98px) {
+@media (min-width: 1440px) {
     .annual-months-grid {
-        grid-template-columns: repeat(4, 1fr);
+        grid-template-columns: repeat(3, 1fr) !important;
+        gap: 0.95rem 0.75rem;
+    }
+    .annual-month-title {
+        font-size: 1.02rem;
+    }
+    .annual-day-cell {
+        height: 25px;
+        width: 25px;
+        font-size: 0.82rem;
     }
 }
 
