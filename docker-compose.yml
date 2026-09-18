@@ -1,0 +1,17 @@
+services:
+  agenda-semanal:
+    image: ortega84/agenda-semanal:latest
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: agenda-semanal
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - DATA_DIR=/app/data
+      - PORT=3000
+    volumes:
+      # Montaje del directorio local ./data para persistencia continua de datos
+      - ./data:/app/data

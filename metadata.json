@@ -1,6 +1,6 @@
 {
-  "name": "Agenda Web",
-  "description": "Agenda web semanal con integración de calendarios iCal externos y visualización de eventos",
+  "name": "Agenda Semanal",
+  "description": "Agenda semanal adaptable con visualización en cuadrícula simétrica, integración de calendarios iCal remotos y sincronización persistente en segundo plano",
   "requestFramePermissions": [],
   "majorCapabilities": [
     "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"

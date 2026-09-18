@@ -4,22 +4,27 @@ import path from 'path';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
 import ical from 'node-ical';
+import crypto from 'crypto';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const app = express();
-const PORT = 3000;
+const PORT = process.env.PORT || 3000;
 const HOST = '0.0.0.0';
 
-// Database directory and file for persistent local storage
-const DB_DIR = path.join(__dirname, 'db');
-const CALENDARS_FILE = path.join(DB_DIR, 'calendars.json');
+// Carpeta aislada para persistencia de datos (compatible con volúmenes Docker)
+const DATA_DIR = process.env.DATA_DIR || path.join(__dirname, 'data');
 
-if (!fs.existsSync(DB_DIR)) {
-  fs.mkdirSync(DB_DIR, { recursive: true });
+if (!fs.existsSync(DATA_DIR)) {
+  fs.mkdirSync(DATA_DIR, { recursive: true });
 }
 
+const CALENDARS_FILE = path.join(DATA_DIR, 'calendars.json');
+const EVENTS_FILE = path.join(DATA_DIR, 'events.json');
+const SYNC_META_FILE = path.join(DATA_DIR, 'sync_meta.json');
+
+// Operaciones atómicas y seguras con la base de datos
 function loadCalendars() {
   try {
     if (fs.existsSync(CALENDARS_FILE)) {
@@ -27,27 +32,85 @@ function loadCalendars() {
       return JSON.parse(data);
     }
   } catch (err) {
-    console.error('Error reading calendars file, starting fresh:', err.message);
+    console.error('[DB] Error leyendo archivo de calendarios:', err.message);
   }
   return [];
 }
 
-function saveCalendars(calendars) {
+function saveCalendars(calendarsData) {
   try {
-    fs.writeFileSync(CALENDARS_FILE, JSON.stringify(calendars, null, 2), 'utf-8');
+    fs.writeFileSync(CALENDARS_FILE, JSON.stringify(calendarsData, null, 2), 'utf-8');
   } catch (err) {
-    console.error('Error saving calendars file:', err.message);
+    console.error('[DB] Error guardando archivo de calendarios:', err.message);
+  }
+}
+
+function loadEventsFromDb() {
+  try {
+    if (fs.existsSync(EVENTS_FILE)) {
+      const data = fs.readFileSync(EVENTS_FILE, 'utf-8');
+      return JSON.parse(data);
+    }
+  } catch (err) {
+    console.error('[DB] Error leyendo base de datos de eventos:', err.message);
+  }
+  return [];
+}
+
+function saveEventsToDb(eventsData) {
+  try {
+    fs.writeFileSync(EVENTS_FILE, JSON.stringify(eventsData, null, 2), 'utf-8');
+  } catch (err) {
+    console.error('[DB] Error guardando base de datos de eventos:', err.message);
+  }
+}
+
+function loadSyncMeta() {
+  try {
+    if (fs.existsSync(SYNC_META_FILE)) {
+      const data = fs.readFileSync(SYNC_META_FILE, 'utf-8');
+      return JSON.parse(data);
+    }
+  } catch (err) {
+    console.error('[DB] Error leyendo metadatos de sincronización:', err.message);
+  }
+  return {
+    lastSync: null,
+    lastStatus: 'idle',
+    eventsCount: 0,
+    dataVersion: 1,
+    dataHash: '',
+    lastChangedAt: null
+  };
+}
+
+function saveSyncMeta(metaData) {
+  try {
+    fs.writeFileSync(SYNC_META_FILE, JSON.stringify(metaData, null, 2), 'utf-8');
+  } catch (err) {
+    console.error('[DB] Error guardando metadatos de sincronización:', err.message);
+  }
+}
+
+function computeEventsHash(eventsList) {
+  try {
+    return crypto.createHash('md5').update(JSON.stringify(eventsList || [])).digest('hex');
+  } catch {
+    return String(Date.now());
   }
 }
 
 let calendars = loadCalendars();
+let cachedEvents = loadEventsFromDb();
+let syncMeta = loadSyncMeta();
+let isSyncing = false;
 let nextId = calendars.reduce((max, c) => Math.max(max, Number(c.id) || 0), 0) + 1;
 
 // Middleware
 app.use(cors());
 app.use(express.json());
 
-// Helper to format date & time in Europe/Madrid timezone
+// Formatear fecha y hora en zona horaria Europe/Madrid
 function formatDateTime(date, timeZone = 'Europe/Madrid') {
   try {
     const d = new Date(date);
@@ -73,13 +136,12 @@ function formatDateTime(date, timeZone = 'Europe/Madrid') {
   }
 }
 
-// Fetch and parse events from an iCal feed URL within a date window
+// Descargar y procesar feed iCal remoto con gestión de recurrencias
 async function fetchCalendar(cal, startDateStr, endDateStr) {
   try {
     let feedUrl = cal.url ? cal.url.trim() : '';
     if (!feedUrl) return [];
 
-    // Convert webcal:// to https://
     if (feedUrl.startsWith('webcal://')) {
       feedUrl = 'https://' + feedUrl.slice(9);
     } else if (feedUrl.startsWith('webcals://')) {
@@ -99,7 +161,7 @@ async function fetchCalendar(cal, startDateStr, endDateStr) {
     clearTimeout(timeoutId);
 
     if (!res.ok) {
-      console.warn(`[Agenda] Failed to fetch calendar ${cal.title}: HTTP ${res.status}`);
+      console.warn(`[Sync] Falló la descarga del calendario "${cal.title}": HTTP ${res.status}`);
       return [];
     }
 
@@ -116,17 +178,16 @@ async function fetchCalendar(cal, startDateStr, endDateStr) {
 
       const summary = item.summary || 'Sin título';
 
-      // 1. Handle recurring events
+      // 1. Eventos recurrentes (rrule)
       if (item.rrule) {
         let occurrences = [];
         try {
           occurrences = item.rrule.between(rangeStart, rangeEnd, true);
         } catch (rerr) {
-          console.warn(`[Agenda] Recurrence parse error for ${summary}:`, rerr.message);
+          console.warn(`[Sync] Advertencia de recurrencia en "${summary}":`, rerr.message);
         }
 
         for (const occDate of occurrences) {
-          // Check for recurrence exclusions (exdate)
           const occIso = occDate.toISOString().split('T')[0];
           if (item.exdate && Object.values(item.exdate).some(ex => {
             try { return new Date(ex).toISOString().split('T')[0] === occIso; } catch { return false; }
@@ -143,6 +204,7 @@ async function fetchCalendar(cal, startDateStr, endDateStr) {
           const formatted = formatDateTime(targetDate);
           if (formatted && formatted.date >= startDateStr && formatted.date <= endDateStr) {
             formattedEvents.push({
+              calendarId: cal.id,
               date: formatted.date,
               time: formatted.time,
               title: summary,
@@ -151,10 +213,11 @@ async function fetchCalendar(cal, startDateStr, endDateStr) {
           }
         }
       } else if (item.start) {
-        // 2. Single event
+        // 2. Evento puntual
         const formatted = formatDateTime(item.start);
         if (formatted && formatted.date >= startDateStr && formatted.date <= endDateStr) {
           formattedEvents.push({
+            calendarId: cal.id,
             date: formatted.date,
             time: formatted.time,
             title: summary,
@@ -166,20 +229,171 @@ async function fetchCalendar(cal, startDateStr, endDateStr) {
 
     return formattedEvents;
   } catch (error) {
-    console.error(`Error cargando ${cal.title}:`, error.message);
+    console.error(`[Sync] Error procesando "${cal.title}":`, error.message);
     return [];
   }
 }
 
-// API Routes
+// Rango para persistencia en base de datos (-1 año a +2 años)
+function getSyncDateRange() {
+  const now = new Date();
+  const pastYear = now.getFullYear() - 1;
+  const futureYear = now.getFullYear() + 2;
+  return {
+    startDateStr: `${pastYear}-01-01`,
+    endDateStr: `${futureYear}-12-31`
+  };
+}
+
+// Sincronización completa con detección de cambios
+async function syncCalendarsToDatabase(forced = false) {
+  if (isSyncing) {
+    return {
+      status: 'in_progress',
+      lastSync: syncMeta.lastSync,
+      eventsCount: cachedEvents.length,
+      dataVersion: syncMeta.dataVersion || 1,
+      hasChanged: false
+    };
+  }
+
+  isSyncing = true;
+
+  try {
+    if (calendars.length === 0) {
+      const hadEvents = cachedEvents.length > 0;
+      cachedEvents = [];
+      saveEventsToDb(cachedEvents);
+      let dataVersion = syncMeta.dataVersion || 1;
+      if (hadEvents) {
+        dataVersion += 1;
+      }
+      syncMeta = {
+        lastSync: new Date().toISOString(),
+        lastStatus: 'success',
+        eventsCount: 0,
+        dataVersion,
+        dataHash: '',
+        lastChangedAt: hadEvents ? new Date().toISOString() : (syncMeta.lastChangedAt || new Date().toISOString())
+      };
+      saveSyncMeta(syncMeta);
+      isSyncing = false;
+      return { status: 'success', lastSync: syncMeta.lastSync, eventsCount: 0, dataVersion, hasChanged: hadEvents };
+    }
+
+    const { startDateStr, endDateStr } = getSyncDateRange();
+    const fetchPromises = calendars.map(cal => fetchCalendar(cal, startDateStr, endDateStr));
+    const results = await Promise.allSettled(fetchPromises);
+
+    const freshEvents = [];
+    const seenKey = new Set();
+
+    for (const r of results) {
+      if (r.status === 'fulfilled' && Array.isArray(r.value)) {
+        for (const ev of r.value) {
+          const uniqueKey = `${ev.calendarId}|${ev.date}|${ev.time}|${ev.title}`;
+          if (!seenKey.has(uniqueKey)) {
+            seenKey.add(uniqueKey);
+            freshEvents.push(ev);
+          }
+        }
+      }
+    }
+
+    // Ordenar cronológicamente
+    freshEvents.sort((a, b) => {
+      if (a.date !== b.date) return a.date.localeCompare(b.date);
+      return a.time.localeCompare(b.time);
+    });
+
+    // Comparar hashes para detectar si hubo cambios
+    const previousHash = syncMeta.dataHash || computeEventsHash(cachedEvents);
+    const newHash = computeEventsHash(freshEvents);
+    const hasDataChanged = previousHash !== newHash;
+
+    let dataVersion = syncMeta.dataVersion || 1;
+    let lastChangedAt = syncMeta.lastChangedAt || new Date().toISOString();
+
+    if (hasDataChanged) {
+      dataVersion += 1;
+      lastChangedAt = new Date().toISOString();
+      console.log(`[Sync] Cambios detectados en calendarios. Nueva versión de datos: v${dataVersion} (${freshEvents.length} eventos).`);
+    }
+
+    cachedEvents = freshEvents;
+    saveEventsToDb(cachedEvents);
+
+    syncMeta = {
+      lastSync: new Date().toISOString(),
+      lastStatus: 'success',
+      eventsCount: cachedEvents.length,
+      dataHash: newHash,
+      dataVersion,
+      lastChangedAt
+    };
+    saveSyncMeta(syncMeta);
+
+    return {
+      status: 'success',
+      lastSync: syncMeta.lastSync,
+      eventsCount: cachedEvents.length,
+      dataVersion: syncMeta.dataVersion,
+      hasChanged: hasDataChanged
+    };
+  } catch (error) {
+    console.error('[Sync] Error durante la sincronización:', error.message);
+    syncMeta = {
+      ...syncMeta,
+      lastStatus: 'error',
+      lastError: error.message
+    };
+    saveSyncMeta(syncMeta);
+    return {
+      status: 'error',
+      lastSync: syncMeta.lastSync,
+      error: error.message,
+      dataVersion: syncMeta.dataVersion || 1,
+      hasChanged: false
+    };
+  } finally {
+    isSyncing = false;
+  }
+}
+
+// Sincronización automática periódica cada 15 minutos (15 * 60 * 1000 ms)
+const SYNC_INTERVAL_MS = 15 * 60 * 1000;
+setInterval(() => {
+  syncCalendarsToDatabase(false);
+}, SYNC_INTERVAL_MS);
+
+// Sincronización inicial al levantar el servidor
+setTimeout(() => {
+  if (calendars.length > 0) {
+    syncCalendarsToDatabase(false);
+  }
+}, 1500);
+
+// Endpoint de salud para Docker / Kubernetes
+app.get('/health', (req, res) => {
+  res.json({
+    status: 'ok',
+    uptime: Math.round(process.uptime()),
+    dataDir: DATA_DIR,
+    calendarsCount: calendars.length,
+    eventsCount: cachedEvents.length,
+    lastSync: syncMeta.lastSync
+  });
+});
+
+// Rutas de API REST
 app.get('/api/calendars', (req, res) => {
   res.json(calendars);
 });
 
-app.post('/api/calendars', (req, res) => {
+app.post('/api/calendars', async (req, res) => {
   const { title, color, url } = req.body || {};
   if (!title || !url) {
-    return res.status(400).json({ error: 'Title and URL are required' });
+    return res.status(400).json({ error: 'Título y URL requeridos' });
   }
 
   const newCal = {
@@ -192,6 +406,9 @@ app.post('/api/calendars', (req, res) => {
   calendars.push(newCal);
   saveCalendars(calendars);
 
+  // Sincronizar en segundo plano de inmediato
+  syncCalendarsToDatabase(true);
+
   res.json({
     status: 'success',
     message: 'Calendario guardado en la base de datos',
@@ -199,10 +416,15 @@ app.post('/api/calendars', (req, res) => {
   });
 });
 
-app.delete('/api/calendars/:calendar_id', (req, res) => {
+app.delete('/api/calendars/:calendar_id', async (req, res) => {
   const calendarId = parseInt(req.params.calendar_id, 10);
   calendars = calendars.filter(c => c.id !== calendarId);
   saveCalendars(calendars);
+
+  cachedEvents = cachedEvents.filter(e => e.calendarId !== calendarId);
+  saveEventsToDb(cachedEvents);
+
+  syncCalendarsToDatabase(true);
 
   res.json({
     status: 'success',
@@ -210,25 +432,38 @@ app.delete('/api/calendars/:calendar_id', (req, res) => {
   });
 });
 
+// Consulta de estado de sincronización y versión de datos
+app.get('/api/sync-status', (req, res) => {
+  res.json({
+    lastSync: syncMeta.lastSync,
+    isSyncing,
+    eventsCount: cachedEvents.length,
+    status: syncMeta.lastStatus,
+    dataVersion: syncMeta.dataVersion || 1,
+    lastChangedAt: syncMeta.lastChangedAt || syncMeta.lastSync
+  });
+});
+
+// Forzar actualización manual (botón Refresh)
+app.post('/api/refresh', async (req, res) => {
+  const result = await syncCalendarsToDatabase(true);
+  res.json(result);
+});
+
+// Lectura de eventos ultrarrápida desde la base de datos local
 app.post('/api/events', async (req, res) => {
-  const { start_date, end_date } = req.body || {};
+  const { start_date, end_date, force_refresh } = req.body || {};
   if (!start_date || !end_date) {
-    return res.status(400).json({ error: 'start_date and end_date are required' });
+    return res.status(400).json({ error: 'start_date y end_date son requeridos' });
   }
 
-  const responseEvents = [];
-
-  // Fetch all calendars in parallel
-  const fetchPromises = calendars.map(cal => fetchCalendar(cal, start_date, end_date));
-  const results = await Promise.allSettled(fetchPromises);
-
-  for (const r of results) {
-    if (r.status === 'fulfilled' && Array.isArray(r.value)) {
-      responseEvents.push(...r.value);
-    }
+  if (force_refresh) {
+    await syncCalendarsToDatabase(true);
+  } else if (cachedEvents.length === 0 && calendars.length > 0 && !syncMeta.lastSync) {
+    await syncCalendarsToDatabase(false);
   }
 
-  // Sort by date and time ascending
+  const responseEvents = cachedEvents.filter(ev => ev.date >= start_date && ev.date <= end_date);
   responseEvents.sort((a, b) => {
     if (a.date !== b.date) return a.date.localeCompare(b.date);
     return a.time.localeCompare(b.time);
@@ -237,7 +472,7 @@ app.post('/api/events', async (req, res) => {
   res.json(responseEvents);
 });
 
-// Serve static assets
+// Servir archivos estáticos
 app.use('/js', express.static(path.join(__dirname, 'js')));
 app.use('/css', express.static(path.join(__dirname, 'css')));
 app.use(express.static(path.join(__dirname)));
@@ -246,6 +481,19 @@ app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, 'index.html'));
 });
 
-app.listen(PORT, HOST, () => {
-  console.log(`Agenda Web server running on http://${HOST}:${PORT}`);
+const server = app.listen(PORT, HOST, () => {
+  console.log(`[Agenda] Servidor ejecutándose en http://${HOST}:${PORT}`);
+  console.log(`[Agenda] Directorio de datos aislado: ${DATA_DIR}`);
 });
+
+// Cierre elegante para contenedores Docker
+function gracefulShutdown(signal) {
+  console.log(`[Agenda] Recibida señal ${signal}. Cerrando servidor de forma segura...`);
+  server.close(() => {
+    console.log('[Agenda] Servidor cerrado. Proceso terminado.');
+    process.exit(0);
+  });
+}
+
+process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
+process.on('SIGINT', () => gracefulShutdown('SIGINT'));

@@ -1,3 +1,20 @@
+# Entorno y dependencias
+node_modules/
+.env
+.env.local
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Base de datos y datos persistentes locales (no versionar calendarios privados)
+data/*.json
+!data/.gitkeep
+db/
+*.sqlite
+*.db
+
+# Sistema y editores
+.DS_Store
 .vs/
 *.gz
-*.db
+dist/

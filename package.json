@@ -1,7 +1,7 @@
 {
-  "name": "agenda-web",
+  "name": "agenda-semanal",
   "version": "1.0.0",
-  "description": "Agenda web semanal con integración de calendarios iCal externos y visualización de eventos",
+  "description": "Agenda semanal adaptable con visualización en cuadrícula simétrica, integración de calendarios iCal remotos y sincronización persistente",
   "type": "module",
   "scripts": {
     "dev": "node server.js",
