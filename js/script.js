@@ -145,7 +145,7 @@ document.addEventListener('DOMContentLoaded', function() {
         }
 
         const months = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
-        const daysShort = ['D', 'L', 'M', 'M', 'J', 'V', 'S'];
+        const daysShort = ['D', 'L', 'M', 'X', 'J', 'V', 'S'];
 
         months.forEach((monthName, monthIndex) => {
             const monthDiv = document.createElement('div');
@@ -153,17 +153,17 @@ document.addEventListener('DOMContentLoaded', function() {
 
             // Título del mes
             let html = `<div class="annual-month-title">${monthName}</div>`;
-            html += `<div class="annual-days-grid annual-days-header text-muted fw-semibold">`;
+            html += `<div class="annual-days-grid annual-days-header text-muted">`;
             daysShort.forEach((d, index) => {
-                let styleClass = '';
+                let styleClass = 'annual-day-header-cell';
                 if (index === 0) {
-                    styleClass = 'text-danger fw-bold'; // Domingo: Rojo
+                    styleClass += ' text-danger fw-bold'; // Domingo: Rojo
                 } else if (index === 6) {
-                    styleClass = 'fw-bold text-secondary'; // Sábado: Negrita
+                    styleClass += ' fw-semibold text-secondary'; // Sábado
                 }
                 html += `<span class="${styleClass}">${d}</span>`;
             });
-            html += `</div><div class="annual-days-grid">`;
+            html += `</div><div class="annual-days-grid annual-days-body">`;
 
             // Días del mes
             const firstDay = new Date(year, monthIndex, 1).getDay();
@@ -171,7 +171,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
             // Espacios vacíos iniciales
             for (let i = 0; i < firstDay; i++) {
-                html += `<span></span>`;
+                html += `<span class="annual-empty-cell"></span>`;
             }
 
             // Números de los días
@@ -188,7 +188,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     cellClass += ' text-danger fw-bold annual-sunday';
                 }
 
-                html += `<span class="${cellClass}" data-year="${year}" data-month="${monthIndex}" data-day="${day}">${day}</span>`;
+                html += `<span class="${cellClass}" data-year="${year}" data-month="${monthIndex}" data-day="${day}" title="${day} de ${monthName} de ${year}">${day}</span>`;
             }
 
             html += `</div>`;
@@ -561,15 +561,10 @@ document.addEventListener('DOMContentLoaded', function() {
             return;
         }
 
+        // En pantallas medianas y grandes, Sunday ocupa limpiamente el espacio restante de la columna 2
         sunday.style.height = '';
-        sunday.style.flex = '';
-
-        const mondayHeight = Math.round(monday.getBoundingClientRect().height);
-        if (mondayHeight > 60) {
-            sunday.style.height = `${mondayHeight}px`;
-            sunday.style.flex = `0 0 ${mondayHeight}px`;
-            sunday.style.maxHeight = `${mondayHeight}px`;
-        }
+        sunday.style.maxHeight = 'none';
+        sunday.style.flex = '1 1 auto';
     }
 
     // Carga inicial
