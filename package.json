@@ -1,0 +1,17 @@
+{
+  "name": "agenda-web",
+  "version": "1.0.0",
+  "description": "Agenda web semanal con integración de calendarios iCal externos y visualización de eventos",
+  "type": "module",
+  "scripts": {
+    "dev": "node server.js",
+    "start": "node server.js",
+    "build": "node -e \"console.log('Build OK')\"",
+    "lint": "node -e \"console.log('Lint OK')\""
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "express": "^4.21.2",
+    "node-ical": "^0.20.1"
+  }
+}

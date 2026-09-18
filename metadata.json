@@ -1,0 +1,8 @@
+{
+  "name": "Agenda Web",
+  "description": "Agenda web semanal con integración de calendarios iCal externos y visualización de eventos",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
