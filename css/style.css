@@ -9,6 +9,24 @@ body {
     color: #212529;
 }
 
+/* Contenedor de grilla principal y proporción de columnas */
+@media (min-width: 1200px) {
+    /* Expansión adicional del 20% en el ancho de la columna del Calendario Anual (Columna 1)
+       Pasa de 30% a 36% (un 20% más sobre 30%, acumulando +44% sobre el 25% base).
+       Las otras 3 columnas (Columna 2: Mes+Domingo, Columna 3 y Columna 4) se reparten equitativamente el 64% restante:
+       36% + 21.333% + 21.333% + 21.333% = 100% */
+    .col-annual-custom {
+        width: 36% !important;
+        flex: 0 0 36% !important;
+        max-width: 36% !important;
+    }
+    .col-standard-custom {
+        width: 21.333333% !important;
+        flex: 0 0 21.333333% !important;
+        max-width: 21.333333% !important;
+    }
+}
+
 /* Tarjetas de días con dimensiones perfectamente uniformes y simétricas */
 .day-block {
     display: flex;
@@ -59,18 +77,9 @@ body {
 /* Igualdad milimétrica de tamaño para todos los días en pantallas medianas y grandes */
 @media (min-width: 768px) {
     .day-block {
-        height: calc((100% - 2rem) / 3) !important;
-        flex: 1 1 calc((100% - 2rem) / 3) !important;
-    }
-    #sunday.day-block {
-        flex: 1 1 auto !important;
-        height: auto !important;
-        max-height: none !important;
-    }
-    /* El cuadrante del mes se ajusta estrictamente al contenido del mes, sin expandirse ni dejar blanco */
-    #mini-calendar-card {
-        flex: 0 0 auto !important;
-        height: auto !important;
+        height: calc((100% - 1rem) / 3) !important;
+        flex: 0 0 calc((100% - 1rem) / 3) !important;
+        max-height: calc((100% - 1rem) / 3) !important;
         min-height: 0 !important;
     }
 }
@@ -109,6 +118,73 @@ body {
     line-height: 1.25;
 }
 
+/* Tarjetas de eventos del bloque de Planificación */
+.planning-event-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 3px 6px;
+    background-color: #f8fafc;
+    border: 1.5px solid rgba(0, 0, 0, 0.08);
+    border-radius: 6px;
+    transition: all 0.15s ease;
+    cursor: pointer;
+    user-select: none;
+}
+
+.planning-event-item:hover {
+    background-color: #f1f5f9;
+    border-color: rgba(0, 0, 0, 0.2);
+}
+
+.planning-event-item.planning-event-selected {
+    background-color: #eff6ff !important;
+    border-color: #2563eb !important;
+    box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.25), 0 2px 4px rgba(0, 0, 0, 0.06);
+}
+
+/* Badge con la cantidad de días asignados al evento */
+.planning-event-days-badge {
+    font-size: 0.68rem;
+    padding: 1px 6px;
+    border-radius: 4px;
+    font-weight: 500;
+    line-height: 1.25;
+    background-color: #f1f5f9;
+    color: #64748b;
+    border: 1px solid #e2e8f0;
+    white-space: nowrap;
+    user-select: none;
+    transition: all 0.15s ease;
+}
+
+.planning-event-days-badge.has-days {
+    background-color: #e0f2fe;
+    color: #0369a1;
+    border-color: #bae6fd;
+    font-weight: 600;
+}
+
+/* Cuadrado con el color y esquinas suavemente redondeadas */
+.planning-color-box {
+    width: 15px;
+    height: 15px;
+    min-width: 15px;
+    min-height: 15px;
+    border-radius: 4px;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.15);
+}
+
+.quick-color-btn {
+    cursor: pointer;
+    transition: transform 0.1s ease, box-shadow 0.1s ease;
+}
+
+.quick-color-btn:hover {
+    transform: scale(1.15);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
 /* ==========================================================
    Estilos modernos y refinados para el Calendario Mensual
    ========================================================== */
@@ -140,7 +216,7 @@ body {
 
 /* Barra de herramientas superior (Mes / Año y flechas) */
 #mini-calendar .fc-header-toolbar {
-    margin-bottom: 0.75rem !important;
+    margin-bottom: 0.35rem !important;
     padding: 0 0.25rem;
     display: flex !important;
     align-items: center !important;
@@ -148,7 +224,7 @@ body {
 }
 
 #mini-calendar .fc-toolbar-title {
-    font-size: 0.95rem !important;
+    font-size: 0.9rem !important;
     font-weight: 700 !important;
     color: #1e293b;
     text-transform: capitalize;
@@ -160,8 +236,8 @@ body {
     background-color: #f1f5f9 !important;
     border: none !important;
     color: #475569 !important;
-    width: 28px !important;
-    height: 28px !important;
+    width: 26px !important;
+    height: 26px !important;
     padding: 0 !important;
     display: inline-flex !important;
     align-items: center !important;
@@ -183,16 +259,16 @@ body {
 }
 
 #mini-calendar .fc-icon {
-    font-size: 0.9rem;
+    font-size: 0.85rem;
 }
 
 /* Nombres de los días de la semana */
 #mini-calendar .fc-col-header-cell {
-    padding: 4px 0 !important;
+    padding: 2px 0 !important;
 }
 
 #mini-calendar .fc-col-header-cell-cushion {
-    font-size: 0.72rem !important;
+    font-size: 0.7rem !important;
     font-weight: 700 !important;
     color: #94a3b8;
     text-transform: uppercase;
@@ -206,13 +282,13 @@ body {
 
 /* Celdas del calendario */
 #mini-calendar .fc-daygrid-day {
-    padding: 2px 0 !important;
+    padding: 1px 0 !important;
     cursor: pointer;
     transition: background-color 0.15s ease;
 }
 
 #mini-calendar .fc-daygrid-day-frame {
-    min-height: 32px !important;
+    min-height: 25px !important;
     display: flex !important;
     align-items: center !important;
     justify-content: center !important;
@@ -228,11 +304,11 @@ body {
     display: inline-flex !important;
     align-items: center !important;
     justify-content: center !important;
-    width: 28px !important;
-    height: 28px !important;
+    width: 25px !important;
+    height: 25px !important;
     padding: 0 !important;
     border-radius: 50% !important;
-    font-size: 0.78rem !important;
+    font-size: 0.76rem !important;
     font-weight: 500;
     color: #334155;
     text-decoration: none !important;
@@ -251,8 +327,8 @@ body {
     opacity: 0.65;
 }
 
-/* Domingo destacado en rojo y en negrita */
-#mini-calendar .fc-day-sun:not(.fc-day-other) .fc-daygrid-day-number {
+/* Domingo destacado en rojo y en negrita (cuando NO es hoy) */
+#mini-calendar .fc-day-sun:not(.fc-day-other):not(.fc-day-today) .fc-daygrid-day-number {
     color: #ef4444 !important;
     font-weight: 700 !important;
 }
@@ -262,13 +338,13 @@ body {
     background-color: rgba(13, 110, 253, 0.08) !important;
 }
 
-#mini-calendar .fc-daygrid-day.fc-day-selected-week .fc-daygrid-day-number {
+#mini-calendar .fc-daygrid-day.fc-day-selected-week:not(.fc-day-today) .fc-daygrid-day-number {
     color: #0d6efd;
     font-weight: 600;
 }
 
-/* Domingo en la semana seleccionada preserva rojo y negrita */
-#mini-calendar .fc-day-sun.fc-day-selected-week:not(.fc-day-other) .fc-daygrid-day-number {
+/* Domingo en la semana seleccionada preserva rojo y negrita si no es hoy */
+#mini-calendar .fc-day-sun.fc-day-selected-week:not(.fc-day-other):not(.fc-day-today) .fc-daygrid-day-number {
     color: #dc2626 !important;
     font-weight: 700 !important;
 }
@@ -283,12 +359,17 @@ body {
     border-bottom-right-radius: 14px !important;
 }
 
-/* Día actual (HOY) */
-#mini-calendar .fc-day-today .fc-daygrid-day-number {
+/* Día actual (HOY): Cuadrado con esquinas redondeadas y texto blanco brillante como en el calendario anual */
+#mini-calendar .fc-day-today .fc-daygrid-day-number,
+#mini-calendar .fc-day-today.fc-day-sun .fc-daygrid-day-number,
+#mini-calendar .fc-day-today.fc-day-selected-week .fc-daygrid-day-number {
     background-color: #0d6efd !important;
     color: #ffffff !important;
     font-weight: 700 !important;
-    box-shadow: 0 2px 5px rgba(13, 110, 253, 0.35) !important;
+    border-radius: 5px !important; /* Cuadrado con esquinas suavemente redondeadas */
+    box-shadow: 0 2px 5px rgba(13, 110, 253, 0.4) !important;
+    width: 26px !important;
+    height: 26px !important;
 }
 
 #mini-calendar .fc-day-today:hover .fc-daygrid-day-number {
@@ -394,44 +475,97 @@ body {
 .annual-day-cell {
     width: 100%;
     max-width: 18px;
-    height: 17px;
+    height: 18px;
     margin: 0 auto;
     display: flex;
     align-items: center;
     justify-content: center;
-    border-radius: 3px;
+    position: relative;
+    border-radius: 4px;
     cursor: pointer;
-    transition: all 0.12s ease;
-    font-size: 0.62rem;
+    transition: transform 0.12s ease, box-shadow 0.12s ease, background-color 0.12s ease;
+    font-size: 0.63rem;
     line-height: 1;
     font-variant-numeric: tabular-nums;
     user-select: none;
     color: #334155;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+.annual-day-number {
+    line-height: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    height: 100%;
+    z-index: 2;
 }
 
 .annual-empty-cell {
     display: block;
     width: 100%;
-    height: 17px;
+    max-width: 18px;
+    height: 18px;
 }
 
-.annual-day-cell:hover:not(.annual-today) {
+.annual-day-cell:hover:not(.annual-today):not(.has-planning-marks) {
     background-color: #e2e8f0;
     color: #0d6efd;
     font-weight: 700;
 }
 
-.annual-sunday {
+/* Indicador de cursor en modo marcado */
+body.marking-mode-active #annual-calendar .annual-day-cell {
+    cursor: pointer;
+}
+
+body.marking-mode-active #annual-calendar .annual-day-cell:hover {
+    outline: 2px solid var(--active-mark-color, #0d6efd);
+    outline-offset: 1px;
+    transform: scale(1.18);
+    z-index: 12;
+}
+
+/* Días marcados con eventos de planificación: Cuadrado redondeado de color con división */
+.annual-day-cell.has-planning-marks {
+    border-radius: 4px !important;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.25);
+    transition: transform 0.12s ease, box-shadow 0.12s ease;
+}
+
+.annual-day-cell.has-planning-marks:hover {
+    transform: scale(1.15);
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.35);
+    z-index: 10;
+}
+
+/* Número con contraste absoluto en días marcados */
+.annual-day-cell.has-planning-marks .annual-day-number {
+    color: #ffffff !important;
+    font-weight: 800 !important;
+    text-shadow: 0 0 2.5px rgba(0, 0, 0, 0.95), 0 1px 2px rgba(0, 0, 0, 0.9);
+}
+
+.annual-sunday:not(.has-planning-marks) {
     color: #dc2626 !important;
     font-weight: 700 !important;
 }
 
-.annual-today {
+/* Día actual sin marcas */
+.annual-today:not(.has-planning-marks) {
     background-color: #0d6efd !important;
     color: #ffffff !important;
     font-weight: bold;
-    border-radius: 3px !important;
+    border-radius: 4px !important;
     box-shadow: 0 1px 2px rgba(13, 110, 253, 0.4);
+}
+
+/* Día actual con marcas de planificación: Mantiene el color/división del evento y añade anillo destacado */
+.annual-today.has-planning-marks {
+    box-shadow: 0 0 0 2px #ffffff, 0 0 0 3.5px #0d6efd, 0 2px 4px rgba(0, 0, 0, 0.3) !important;
+    border-radius: 4px !important;
 }
 
 /* ==========================================================

@@ -22,6 +22,8 @@ if (!fs.existsSync(DATA_DIR)) {
 
 const CALENDARS_FILE = path.join(DATA_DIR, 'calendars.json');
 const EVENTS_FILE = path.join(DATA_DIR, 'events.json');
+const PLANNING_EVENTS_FILE = path.join(DATA_DIR, 'planning_events.json');
+const PLANNING_MARKS_FILE = path.join(DATA_DIR, 'planning_marks.json');
 const SYNC_META_FILE = path.join(DATA_DIR, 'sync_meta.json');
 
 // Operaciones atómicas y seguras con la base de datos
@@ -42,6 +44,46 @@ function saveCalendars(calendarsData) {
     fs.writeFileSync(CALENDARS_FILE, JSON.stringify(calendarsData, null, 2), 'utf-8');
   } catch (err) {
     console.error('[DB] Error guardando archivo de calendarios:', err.message);
+  }
+}
+
+function loadPlanningEvents() {
+  try {
+    if (fs.existsSync(PLANNING_EVENTS_FILE)) {
+      const data = fs.readFileSync(PLANNING_EVENTS_FILE, 'utf-8');
+      return JSON.parse(data);
+    }
+  } catch (err) {
+    console.error('[DB] Error leyendo archivo de eventos de planificación:', err.message);
+  }
+  return [];
+}
+
+function savePlanningEvents(planningData) {
+  try {
+    fs.writeFileSync(PLANNING_EVENTS_FILE, JSON.stringify(planningData, null, 2), 'utf-8');
+  } catch (err) {
+    console.error('[DB] Error guardando archivo de eventos de planificación:', err.message);
+  }
+}
+
+function loadPlanningMarks() {
+  try {
+    if (fs.existsSync(PLANNING_MARKS_FILE)) {
+      const data = fs.readFileSync(PLANNING_MARKS_FILE, 'utf-8');
+      return JSON.parse(data);
+    }
+  } catch (err) {
+    console.error('[DB] Error leyendo marcas de planificación:', err.message);
+  }
+  return {};
+}
+
+function savePlanningMarks(marksData) {
+  try {
+    fs.writeFileSync(PLANNING_MARKS_FILE, JSON.stringify(marksData, null, 2), 'utf-8');
+  } catch (err) {
+    console.error('[DB] Error guardando marcas de planificación:', err.message);
   }
 }
 
@@ -102,9 +144,12 @@ function computeEventsHash(eventsList) {
 
 let calendars = loadCalendars();
 let cachedEvents = loadEventsFromDb();
+let planningEvents = loadPlanningEvents();
+let planningMarks = loadPlanningMarks();
 let syncMeta = loadSyncMeta();
 let isSyncing = false;
 let nextId = calendars.reduce((max, c) => Math.max(max, Number(c.id) || 0), 0) + 1;
+let nextPlanningId = planningEvents.reduce((max, e) => Math.max(max, Number(e.id) || 0), 0) + 1;
 
 // Middleware
 app.use(cors());
@@ -416,6 +461,55 @@ app.post('/api/calendars', async (req, res) => {
   });
 });
 
+app.put('/api/calendars/:calendar_id', async (req, res) => {
+  const calendarId = parseInt(req.params.calendar_id, 10);
+  const index = calendars.findIndex(c => c.id === calendarId);
+  if (index === -1) {
+    return res.status(404).json({ error: 'Calendario no encontrado' });
+  }
+
+  const { title, color, url } = req.body || {};
+  if (!title || !url) {
+    return res.status(400).json({ error: 'Título y URL requeridos' });
+  }
+
+  const oldCal = calendars[index];
+  const urlChanged = oldCal.url !== String(url).trim();
+
+  calendars[index] = {
+    ...oldCal,
+    title: String(title).trim(),
+    color: color || '#3b82f6',
+    url: String(url).trim()
+  };
+  saveCalendars(calendars);
+
+  if (!urlChanged) {
+    let changed = false;
+    cachedEvents = cachedEvents.map(e => {
+      if (e.calendarId === calendarId) {
+        changed = true;
+        return { ...e, color: calendars[index].color, calendarTitle: calendars[index].title };
+      }
+      return e;
+    });
+    if (changed) {
+      saveEventsToDb(cachedEvents);
+      syncMeta.dataVersion = (syncMeta.dataVersion || 1) + 1;
+      syncMeta.lastChangedAt = new Date().toISOString();
+      saveSyncMeta(syncMeta);
+    }
+  } else {
+    syncCalendarsToDatabase(true);
+  }
+
+  res.json({
+    status: 'success',
+    message: 'Calendario actualizado',
+    calendar: calendars[index]
+  });
+});
+
 app.delete('/api/calendars/:calendar_id', async (req, res) => {
   const calendarId = parseInt(req.params.calendar_id, 10);
   calendars = calendars.filter(c => c.id !== calendarId);
@@ -429,6 +523,135 @@ app.delete('/api/calendars/:calendar_id', async (req, res) => {
   res.json({
     status: 'success',
     message: 'Calendario eliminado'
+  });
+});
+
+// Rutas para Eventos de Planificación (Creados por el usuario con color y título, persistentes)
+app.get('/api/planning-events', (req, res) => {
+  res.json(planningEvents);
+});
+
+app.post('/api/planning-events', (req, res) => {
+  const { title, color, date, time } = req.body || {};
+  if (!title || !title.trim()) {
+    return res.status(400).json({ error: 'El título del evento es requerido' });
+  }
+
+  const newEvent = {
+    id: nextPlanningId++,
+    title: String(title).trim(),
+    color: color || '#0d6efd',
+    createdAt: new Date().toISOString()
+  };
+
+  planningEvents.push(newEvent);
+  savePlanningEvents(planningEvents);
+
+  res.json({
+    status: 'success',
+    message: 'Evento de planificación guardado',
+    event: newEvent
+  });
+});
+
+app.put('/api/planning-events/:event_id', (req, res) => {
+  const eventId = parseInt(req.params.event_id, 10);
+  const index = planningEvents.findIndex(e => e.id === eventId);
+  if (index === -1) {
+    return res.status(404).json({ error: 'Evento de planificación no encontrado' });
+  }
+
+  const { title, color } = req.body || {};
+  if (!title || !title.trim()) {
+    return res.status(400).json({ error: 'El título del evento es requerido' });
+  }
+
+  planningEvents[index] = {
+    ...planningEvents[index],
+    title: String(title).trim(),
+    color: color || planningEvents[index].color || '#0d6efd',
+    updatedAt: new Date().toISOString()
+  };
+  savePlanningEvents(planningEvents);
+
+  res.json({
+    status: 'success',
+    message: 'Evento de planificación actualizado',
+    event: planningEvents[index]
+  });
+});
+
+app.delete('/api/planning-events/:event_id', (req, res) => {
+  const eventId = parseInt(req.params.event_id, 10);
+  planningEvents = planningEvents.filter(e => e.id !== eventId);
+  savePlanningEvents(planningEvents);
+
+  // Limpiar marcas del calendario anual asociadas a este evento
+  let marksChanged = false;
+  for (const date in planningMarks) {
+    if (Array.isArray(planningMarks[date]) && planningMarks[date].includes(eventId)) {
+      planningMarks[date] = planningMarks[date].filter(id => id !== eventId);
+      if (planningMarks[date].length === 0) {
+        delete planningMarks[date];
+      }
+      marksChanged = true;
+    }
+  }
+  if (marksChanged) {
+    savePlanningMarks(planningMarks);
+  }
+
+  res.json({
+    status: 'success',
+    message: 'Evento de planificación eliminado'
+  });
+});
+
+// Rutas para Marcas en los Días del Calendario Anual (Persistentes)
+app.get('/api/planning-marks', (req, res) => {
+  res.json(planningMarks);
+});
+
+app.post('/api/planning-marks/toggle', (req, res) => {
+  const { date, eventId } = req.body || {};
+  if (!date || !eventId) {
+    return res.status(400).json({ error: 'date (YYYY-MM-DD) y eventId son requeridos' });
+  }
+
+  const id = Number(eventId);
+  const currentList = Array.isArray(planningMarks[date]) ? [...planningMarks[date]] : [];
+  const index = currentList.indexOf(id);
+
+  let isMarked = false;
+  if (index !== -1) {
+    currentList.splice(index, 1);
+    if (currentList.length === 0) {
+      delete planningMarks[date];
+    } else {
+      planningMarks[date] = currentList;
+    }
+    isMarked = false;
+  } else {
+    if (currentList.length >= 4) {
+      return res.status(400).json({
+        error: 'Máximo 4 eventos por día en la planificación',
+        limitReached: true,
+        eventIds: currentList
+      });
+    }
+    currentList.push(id);
+    planningMarks[date] = currentList;
+    isMarked = true;
+  }
+
+  savePlanningMarks(planningMarks);
+
+  res.json({
+    status: 'success',
+    date,
+    eventId: id,
+    isMarked,
+    eventIds: planningMarks[date] || []
   });
 });
 

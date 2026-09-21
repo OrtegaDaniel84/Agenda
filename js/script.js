@@ -132,7 +132,48 @@ document.addEventListener('DOMContentLoaded', function() {
         fetchRealEvents();
     }
 
-    // 3. Vista Anual Estática (12 Meses)
+    // 3. Vista Anual (12 Meses) con Marcas de Planificación
+    let planningMarks = {};
+    let selectedPlanningEventId = null;
+
+    function getDateKey(year, monthIndex, day) {
+        const m = String(monthIndex + 1).padStart(2, '0');
+        const d = String(day).padStart(2, '0');
+        return `${year}-${m}-${d}`;
+    }
+
+    // Calcula el fondo del cuadrado redondeado según el número de eventos (1 a 4)
+    function getPlanningDayBackground(colors) {
+        if (!colors || colors.length === 0) return '';
+        if (colors.length === 1) {
+            return colors[0];
+        }
+        if (colors.length === 2) {
+            // Dividido en 2 mitades verticales
+            return `linear-gradient(90deg, ${colors[0]} 0% 50%, ${colors[1]} 50% 100%)`;
+        }
+        if (colors.length === 3) {
+            // Dividido en 3 franjas verticales
+            return `linear-gradient(90deg, ${colors[0]} 0% 33.33%, ${colors[1]} 33.33% 66.67%, ${colors[2]} 66.67% 100%)`;
+        }
+        // 4 eventos: dividido en 4 cuadrantes (2x2)
+        // 270deg inicia en las 9 en punto (cuadrante superior-izquierdo) y avanza en sentido horario
+        return `conic-gradient(from 270deg at 50% 50%, ${colors[0]} 0deg 90deg, ${colors[1]} 90deg 180deg, ${colors[2]} 180deg 270deg, ${colors[3]} 270deg 360deg)`;
+    }
+
+    async function loadPlanningMarks() {
+        try {
+            const res = await fetch('/api/planning-marks');
+            if (res.ok) {
+                planningMarks = await res.json();
+                renderAnnualCalendar();
+                updatePlanningEventsDayCounts();
+            }
+        } catch (err) {
+            console.warn('[Agenda] Error cargando marcas de planificación:', err);
+        }
+    }
+
     function renderAnnualCalendar() {
         const container = document.getElementById('annual-calendar');
         if (!container) return;
@@ -180,6 +221,12 @@ document.addEventListener('DOMContentLoaded', function() {
                 const currentDayOfWeek = new Date(year, monthIndex, day).getDay();
                 const isToday = day === today.getDate() && monthIndex === today.getMonth() && year === today.getFullYear();
                 const isSunday = currentDayOfWeek === 0;
+                const dateKey = getDateKey(year, monthIndex, day);
+
+                const eventIds = planningMarks[dateKey] || [];
+                const assignedEvents = eventIds.map(id => planningEventsList.find(e => e.id === id)).filter(Boolean);
+                const visibleEvents = assignedEvents.slice(0, 4);
+                const hasMarks = visibleEvents.length > 0;
 
                 let cellClass = 'annual-day-cell';
                 if (isToday) {
@@ -187,8 +234,22 @@ document.addEventListener('DOMContentLoaded', function() {
                 } else if (isSunday) {
                     cellClass += ' text-danger fw-bold annual-sunday';
                 }
+                if (hasMarks) {
+                    cellClass += ' has-planning-marks';
+                }
 
-                html += `<span class="${cellClass}" data-year="${year}" data-month="${monthIndex}" data-day="${day}" title="${day} de ${monthName} de ${year}">${day}</span>`;
+                let styleAttr = '';
+                if (hasMarks) {
+                    const bg = getPlanningDayBackground(visibleEvents.map(e => e.color));
+                    styleAttr = `style="background: ${bg};"`;
+                }
+
+                let tooltipText = `${day} de ${monthName} de ${year}`;
+                if (hasMarks) {
+                    tooltipText += ` - ${visibleEvents.map(e => e.title).join(', ')}`;
+                }
+
+                html += `<span class="${cellClass}" data-date="${dateKey}" data-year="${year}" data-month="${monthIndex}" data-day="${day}" title="${tooltipText}" ${styleAttr}><span class="annual-day-number">${day}</span></span>`;
             }
 
             html += `</div>`;
@@ -196,17 +257,132 @@ document.addEventListener('DOMContentLoaded', function() {
             container.appendChild(monthDiv);
         });
 
-        // Permitir hacer clic en cualquier día del calendario anual para ir a esa semana
+        // Interacción al hacer clic en los días del calendario anual
         container.querySelectorAll('.annual-day-cell').forEach(cell => {
-            cell.addEventListener('click', () => {
+            cell.addEventListener('click', async (e) => {
+                const dateKey = cell.dataset.date;
                 const y = parseInt(cell.dataset.year, 10);
                 const m = parseInt(cell.dataset.month, 10);
                 const d = parseInt(cell.dataset.day, 10);
                 const targetDate = new Date(y, m, d);
-                miniCalendar.gotoDate(targetDate);
-                updateWeekView(targetDate);
+
+                if (selectedPlanningEventId) {
+                    // Modo marcado: marcar o desmarcar con un solo clic
+                    e.stopPropagation();
+                    await toggleDatePlanningMark(dateKey, selectedPlanningEventId);
+                } else {
+                    // Modo navegación normal
+                    miniCalendar.gotoDate(targetDate);
+                    updateWeekView(targetDate);
+                }
             });
         });
+    }
+
+    async function toggleDatePlanningMark(dateKey, eventId) {
+        const id = Number(eventId);
+        const currentList = Array.isArray(planningMarks[dateKey]) ? [...planningMarks[dateKey]] : [];
+        const idx = currentList.indexOf(id);
+
+        if (idx !== -1) {
+            currentList.splice(idx, 1);
+            if (currentList.length === 0) {
+                delete planningMarks[dateKey];
+            } else {
+                planningMarks[dateKey] = currentList;
+            }
+        } else {
+            if (currentList.length >= 4) {
+                const feedbackEl = document.getElementById('active-event-name');
+                if (feedbackEl) {
+                    const origText = feedbackEl.textContent;
+                    feedbackEl.textContent = '¡Máximo 4 eventos por día!';
+                    feedbackEl.classList.add('text-danger');
+                    setTimeout(() => {
+                        feedbackEl.textContent = origText;
+                        feedbackEl.classList.remove('text-danger');
+                    }, 2000);
+                }
+                return;
+            }
+            currentList.push(id);
+            planningMarks[dateKey] = currentList;
+        }
+
+        // Actualizar visualmente la celda y los días del evento de forma instantánea
+        updateSingleAnnualDayCell(dateKey);
+        updatePlanningEventsDayCounts();
+
+        try {
+            const res = await fetch('/api/planning-marks/toggle', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ date: dateKey, eventId: id })
+            });
+            if (res.ok) {
+                const data = await res.json();
+                if (data.eventIds) {
+                    if (data.eventIds.length > 0) {
+                        planningMarks[dateKey] = data.eventIds;
+                    } else {
+                        delete planningMarks[dateKey];
+                    }
+                    updateSingleAnnualDayCell(dateKey);
+                    updatePlanningEventsDayCounts();
+                }
+            } else {
+                const data = await res.json().catch(() => ({}));
+                if (data.limitReached) {
+                    const feedbackEl = document.getElementById('active-event-name');
+                    if (feedbackEl) {
+                        feedbackEl.textContent = '¡Máximo 4 eventos por día!';
+                    }
+                }
+            }
+        } catch (err) {
+            console.error('[Agenda] Error alternando marca de planificación:', err);
+        }
+    }
+
+    function updateSingleAnnualDayCell(dateKey) {
+        const cell = document.querySelector(`.annual-day-cell[data-date="${dateKey}"]`);
+        if (!cell) return;
+
+        const y = parseInt(cell.dataset.year, 10);
+        const m = parseInt(cell.dataset.month, 10);
+        const d = parseInt(cell.dataset.day, 10);
+        const today = new Date();
+        const isToday = d === today.getDate() && m === today.getMonth() && y === today.getFullYear();
+        const isSunday = new Date(y, m, d).getDay() === 0;
+
+        const eventIds = planningMarks[dateKey] || [];
+        const assignedEvents = eventIds.map(id => planningEventsList.find(e => e.id === id)).filter(Boolean);
+        const visibleEvents = assignedEvents.slice(0, 4);
+        const hasMarks = visibleEvents.length > 0;
+
+        let cellClass = 'annual-day-cell';
+        if (isToday) {
+            cellClass += ' annual-today';
+        } else if (isSunday) {
+            cellClass += ' text-danger fw-bold annual-sunday';
+        }
+        if (hasMarks) {
+            cellClass += ' has-planning-marks';
+            const bg = getPlanningDayBackground(visibleEvents.map(e => e.color));
+            cell.style.background = bg;
+        } else {
+            cell.style.background = '';
+        }
+        cell.className = cellClass;
+
+        const months = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
+        let tooltipText = `${d} de ${months[m]} de ${y}`;
+        if (hasMarks) {
+            tooltipText += ` - ${visibleEvents.map(e => e.title).join(', ')}`;
+        }
+        cell.title = tooltipText;
+
+        cell.innerHTML = `<span class="annual-day-number">${d}</span>`;
     }
 
     renderAnnualCalendar();
@@ -362,6 +538,7 @@ document.addEventListener('DOMContentLoaded', function() {
         const currentMinutes = now.getMinutes();
         const currentTimeMinutes = currentHours * 60 + currentMinutes;
 
+        // Renderizar eventos en cada día específico
         events.forEach(event => {
             if (weekDates[event.date]) {
                 const dayContainer = document.querySelector(`#${weekDates[event.date]} .events-list`);
@@ -389,7 +566,7 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         });
 
-        // Completar con renglones visuales vacíos para mantener estructura prolija
+        // Completar con renglones visuales vacíos para mantener estructura prolija en los días
         daysIds.forEach(id => {
             const dayContainer = document.querySelector(`#${id} .events-list`);
             if (!dayContainer) return;
@@ -408,6 +585,324 @@ document.addEventListener('DOMContentLoaded', function() {
         });
 
         requestAnimationFrame(syncDayBlockHeights);
+    }
+
+    // 5. Gestión de Eventos de Planificación (Persistentes con Color y Título)
+    let planningEventsList = [];
+    const planningContainer = document.getElementById('general-events-list');
+    const planningCountBadge = document.getElementById('events-count-badge');
+    const formPlanning = document.getElementById('form-planning-event');
+    const modalPlanningEl = document.getElementById('modal-add-planning-event');
+    const planningColorInput = document.getElementById('planning-color');
+    const planningIdInput = document.getElementById('planning-id');
+    const modalPlanningTitleText = document.getElementById('modalPlanningTitleText');
+    const modalPlanningIcon = document.getElementById('modalPlanningIcon');
+    const btnSubmitPlanningText = document.getElementById('btn-submit-planning-text');
+    const btnAddPlanningEvent = document.getElementById('btn-add-planning-event');
+
+    function resetPlanningModal() {
+        if (formPlanning) formPlanning.reset();
+        if (planningIdInput) planningIdInput.value = '';
+        if (planningColorInput) planningColorInput.value = '#0d6efd';
+        if (modalPlanningTitleText) modalPlanningTitleText.textContent = 'Nuevo Evento de Planificación';
+        if (modalPlanningIcon) modalPlanningIcon.className = 'bi bi-calendar2-plus text-primary';
+        if (btnSubmitPlanningText) btnSubmitPlanningText.textContent = 'Guardar Evento';
+    }
+
+    if (btnAddPlanningEvent) {
+        btnAddPlanningEvent.addEventListener('click', resetPlanningModal);
+    }
+
+    if (modalPlanningEl) {
+        modalPlanningEl.addEventListener('hidden.bs.modal', resetPlanningModal);
+    }
+
+    // Manejar selección de paleta rápida
+    document.querySelectorAll('.quick-color-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const chosen = btn.dataset.color;
+            if (planningColorInput && chosen) {
+                planningColorInput.value = chosen;
+            }
+        });
+    });
+
+    // Barra de selección activa y badge del calendario anual
+    const btnDeselectEvent = document.getElementById('btn-deselect-event');
+    if (btnDeselectEvent) {
+        btnDeselectEvent.addEventListener('click', () => selectPlanningEvent(null));
+    }
+    const annualMarkingBadge = document.getElementById('annual-marking-badge');
+    if (annualMarkingBadge) {
+        annualMarkingBadge.style.cursor = 'pointer';
+        annualMarkingBadge.addEventListener('click', () => selectPlanningEvent(null));
+    }
+
+    function selectPlanningEvent(id) {
+        if (selectedPlanningEventId === id) {
+            selectedPlanningEventId = null;
+        } else {
+            selectedPlanningEventId = id;
+        }
+
+        const activeBar = document.getElementById('planning-active-bar');
+        const activeColorBox = document.getElementById('active-event-indicator');
+        const activeName = document.getElementById('active-event-name');
+        const annualBadge = document.getElementById('annual-marking-badge');
+        const annualEventName = document.getElementById('annual-marking-event-name');
+
+        if (selectedPlanningEventId) {
+            const ev = planningEventsList.find(e => e.id === selectedPlanningEventId);
+            if (ev) {
+                if (activeBar) activeBar.classList.remove('d-none');
+                if (activeColorBox) activeColorBox.style.backgroundColor = ev.color;
+                if (activeName) activeName.textContent = `Marcando con: ${ev.title}`;
+
+                if (annualBadge) {
+                    annualBadge.classList.remove('d-none');
+                    annualBadge.classList.add('d-inline-flex');
+                    annualBadge.style.backgroundColor = ev.color;
+                }
+                if (annualEventName) annualEventName.textContent = ev.title;
+
+                document.body.classList.add('marking-mode-active');
+                document.documentElement.style.setProperty('--active-mark-color', ev.color);
+            } else {
+                selectedPlanningEventId = null;
+            }
+        }
+
+        if (!selectedPlanningEventId) {
+            if (activeBar) activeBar.classList.add('d-none');
+            if (annualBadge) {
+                annualBadge.classList.add('d-none');
+                annualBadge.classList.remove('d-inline-flex');
+            }
+            document.body.classList.remove('marking-mode-active');
+            document.documentElement.style.removeProperty('--active-mark-color');
+        }
+
+        renderPlanningEvents();
+    }
+
+    async function loadPlanningEvents() {
+        try {
+            const res = await fetch('/api/planning-events');
+            if (res.ok) {
+                planningEventsList = await res.json();
+                renderPlanningEvents();
+                renderAnnualCalendar();
+            }
+        } catch (err) {
+            console.warn('[Agenda] Error cargando eventos de planificación:', err);
+        }
+    }
+
+    function countDaysForPlanningEvent(eventId) {
+        const id = Number(eventId);
+        let count = 0;
+        for (const date in planningMarks) {
+            if (Array.isArray(planningMarks[date]) && planningMarks[date].includes(id)) {
+                count++;
+            }
+        }
+        return count;
+    }
+
+    function updatePlanningEventsDayCounts() {
+        if (!planningContainer) return;
+        planningContainer.querySelectorAll('.planning-event-days-badge[data-event-days-id]').forEach(badge => {
+            const id = Number(badge.dataset.eventDaysId);
+            const count = countDaysForPlanningEvent(id);
+            badge.textContent = `${count} ${count === 1 ? 'día' : 'días'}`;
+            badge.title = `${count} ${count === 1 ? 'día marcado en el calendario anual' : 'días marcados en el calendario anual'}`;
+            if (count > 0) {
+                badge.classList.add('has-days');
+            } else {
+                badge.classList.remove('has-days');
+            }
+        });
+    }
+
+    function renderPlanningEvents() {
+        if (!planningContainer) return;
+        planningContainer.innerHTML = '';
+
+        if (planningEventsList.length === 0) {
+            planningContainer.innerHTML = `
+                <div class="text-center text-muted small py-3 px-2">
+                    <i class="bi bi-calendar-check d-block fs-5 mb-1 opacity-50"></i>
+                    <span>Sin eventos de planificación.</span>
+                    <button type="button" class="btn btn-link btn-sm p-0 d-block mx-auto mt-1 text-decoration-none fw-semibold" data-bs-toggle="modal" data-bs-target="#modal-add-planning-event">
+                        + Agregar evento
+                    </button>
+                </div>
+            `;
+            return;
+        }
+
+        planningEventsList.forEach(ev => {
+            const isSelected = selectedPlanningEventId === ev.id;
+            const daysCount = countDaysForPlanningEvent(ev.id);
+            const itemEl = document.createElement('div');
+            itemEl.className = `planning-event-item ${isSelected ? 'planning-event-selected' : ''}`;
+            itemEl.dataset.id = ev.id;
+            itemEl.setAttribute('role', 'button');
+            itemEl.setAttribute('title', isSelected ? 'Haz clic para deseleccionar' : 'Haz clic para seleccionar y marcar días en el calendario anual');
+            itemEl.innerHTML = `
+                <span class="planning-color-box flex-shrink-0" style="background-color: ${ev.color};" title="Color: ${ev.color}"></span>
+                <div class="d-flex align-items-center text-truncate flex-grow-1 me-1">
+                    <span class="fw-medium text-dark text-truncate small" title="${ev.title}">${ev.title}</span>
+                </div>
+                <span class="planning-event-days-badge ${daysCount > 0 ? 'has-days' : ''} flex-shrink-0" data-event-days-id="${ev.id}" title="${daysCount} ${daysCount === 1 ? 'día marcado en el calendario anual' : 'días marcados en el calendario anual'}">
+                    ${daysCount} ${daysCount === 1 ? 'día' : 'días'}
+                </span>
+                ${isSelected ? '<span class="badge bg-primary text-white py-0 px-1 fs-8 flex-shrink-0 ms-1"><i class="bi bi-brush-fill me-1" style="font-size:0.6rem;"></i>Marcando</span>' : ''}
+                <div class="d-flex align-items-center gap-1 flex-shrink-0 ms-1">
+                    <button type="button" class="btn btn-sm btn-outline-primary border-0 p-0 px-1 opacity-75 hover-opacity-100 btn-edit-planning" title="Editar evento">
+                        <i class="bi bi-pencil" style="font-size: 0.75rem;"></i>
+                    </button>
+                    <button type="button" class="btn btn-sm btn-outline-danger border-0 p-0 px-1 opacity-75 hover-opacity-100 btn-delete-planning" title="Eliminar evento">
+                        <i class="bi bi-trash3" style="font-size: 0.75rem;"></i>
+                    </button>
+                </div>
+            `;
+
+            // Clic para alternar selección
+            itemEl.addEventListener('click', (e) => {
+                if (e.target.closest('.btn-edit-planning') || e.target.closest('.btn-delete-planning')) {
+                    return;
+                }
+                selectPlanningEvent(ev.id);
+            });
+
+            const editBtn = itemEl.querySelector('.btn-edit-planning');
+            if (editBtn) {
+                editBtn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    editPlanningEvent(ev.id);
+                });
+            }
+
+            const delBtn = itemEl.querySelector('.btn-delete-planning');
+            if (delBtn) {
+                delBtn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    deletePlanningEvent(ev.id);
+                });
+            }
+
+            planningContainer.appendChild(itemEl);
+        });
+
+        // Renglones vacíos si hay pocos items para mantener estética impecable
+        for (let i = planningEventsList.length; i < 4; i++) {
+            const emptyEl = document.createElement('div');
+            emptyEl.className = 'd-flex align-items-center gap-2 py-1 px-2 user-select-none opacity-25';
+            emptyEl.innerHTML = `
+                <span class="planning-color-box flex-shrink-0 bg-secondary opacity-50"></span>
+                <span class="text-muted small">________________________</span>
+            `;
+            planningContainer.appendChild(emptyEl);
+        }
+    }
+
+    window.editPlanningEvent = function(id) {
+        const ev = planningEventsList.find(e => e.id === id);
+        if (!ev) return;
+
+        if (planningIdInput) planningIdInput.value = ev.id;
+        const titleEl = document.getElementById('planning-title');
+        if (titleEl) titleEl.value = ev.title;
+        if (planningColorInput) planningColorInput.value = ev.color;
+
+        if (modalPlanningTitleText) modalPlanningTitleText.textContent = 'Editar Evento de Planificación';
+        if (modalPlanningIcon) modalPlanningIcon.className = 'bi bi-pencil-square text-primary';
+        if (btnSubmitPlanningText) btnSubmitPlanningText.textContent = 'Actualizar Evento';
+
+        if (modalPlanningEl && window.bootstrap && window.bootstrap.Modal) {
+            bootstrap.Modal.getOrCreateInstance(modalPlanningEl).show();
+        }
+    };
+
+    window.deletePlanningEvent = async function(id) {
+        try {
+            const res = await fetch(`/api/planning-events/${id}`, { method: 'DELETE' });
+            if (res.ok) {
+                planningEventsList = planningEventsList.filter(e => e.id !== id);
+                if (selectedPlanningEventId === id) {
+                    selectPlanningEvent(null);
+                }
+                // Limpiar marcas locales asociadas a este evento
+                for (const date in planningMarks) {
+                    if (Array.isArray(planningMarks[date])) {
+                        planningMarks[date] = planningMarks[date].filter(evId => evId !== id);
+                        if (planningMarks[date].length === 0) {
+                            delete planningMarks[date];
+                        }
+                    }
+                }
+                renderPlanningEvents();
+                renderAnnualCalendar();
+            }
+        } catch (err) {
+            console.error('[Agenda] Error eliminando evento de planificación:', err);
+        }
+    };
+
+    if (formPlanning) {
+        formPlanning.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const titleEl = document.getElementById('planning-title');
+            const colorEl = document.getElementById('planning-color');
+            const editingId = planningIdInput ? planningIdInput.value : '';
+
+            const payload = {
+                title: titleEl.value.trim(),
+                color: colorEl.value || '#0d6efd'
+            };
+
+            try {
+                const url = editingId ? `/api/planning-events/${editingId}` : '/api/planning-events';
+                const method = editingId ? 'PUT' : 'POST';
+
+                const res = await fetch(url, {
+                    method,
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                if (res.ok) {
+                    const data = await res.json();
+                    if (data.event) {
+                        if (editingId) {
+                            const idx = planningEventsList.findIndex(ev => ev.id === Number(editingId));
+                            if (idx !== -1) {
+                                planningEventsList[idx] = data.event;
+                            }
+                        } else {
+                            planningEventsList.push(data.event);
+                        }
+                        renderPlanningEvents();
+                        renderAnnualCalendar();
+
+                        if (selectedPlanningEventId && data.event && data.event.id === selectedPlanningEventId) {
+                            // Actualizar colores del banner de marcado
+                            selectPlanningEvent(selectedPlanningEventId);
+                        }
+                    }
+                    resetPlanningModal();
+
+                    // Cerrar el modal
+                    if (modalPlanningEl && window.bootstrap && window.bootstrap.Modal) {
+                        const modalInstance = bootstrap.Modal.getInstance(modalPlanningEl);
+                        if (modalInstance) modalInstance.hide();
+                    }
+                }
+            } catch (err) {
+                console.error('[Agenda] Error guardando evento de planificación:', err);
+            }
+        });
     }
 
     async function fetchRealEvents() {
@@ -448,6 +943,33 @@ document.addEventListener('DOMContentLoaded', function() {
     const modalEl = document.getElementById('modal-calendars');
     const form = document.getElementById('form-calendar');
     const list = document.getElementById('list-calendars');
+    const calIdInput = document.getElementById('cal-id');
+    const btnSubmitCal = document.getElementById('btn-submit-cal');
+    const btnSubmitCalText = document.getElementById('btn-submit-cal-text');
+    const btnSubmitCalIcon = document.getElementById('btn-submit-cal-icon');
+    const btnCancelEditCal = document.getElementById('btn-cancel-edit-cal');
+    let currentCalendarsList = [];
+
+    function resetCalendarForm() {
+        if (form) form.reset();
+        if (calIdInput) calIdInput.value = '';
+        const colorInput = document.getElementById('cal-color');
+        if (colorInput) colorInput.value = '#3b82f6';
+        if (btnSubmitCal) {
+            btnSubmitCal.className = 'btn btn-success fw-semibold flex-grow-1 d-inline-flex align-items-center justify-content-center gap-2';
+        }
+        if (btnSubmitCalText) btnSubmitCalText.textContent = 'Añadir Calendario';
+        if (btnSubmitCalIcon) btnSubmitCalIcon.className = 'bi bi-plus-circle-fill';
+        if (btnCancelEditCal) btnCancelEditCal.classList.add('d-none');
+    }
+
+    if (btnCancelEditCal) {
+        btnCancelEditCal.addEventListener('click', resetCalendarForm);
+    }
+
+    if (modalEl) {
+        modalEl.addEventListener('hidden.bs.modal', resetCalendarForm);
+    }
 
     function getBsModal() {
         if (window.bootstrap && window.bootstrap.Modal && modalEl) {
@@ -461,6 +983,7 @@ document.addEventListener('DOMContentLoaded', function() {
             const response = await fetch('/api/calendars');
             if (response.ok) {
                 const calendars = await response.json();
+                currentCalendarsList = calendars;
                 renderCalendarList(calendars);
             }
         } catch (error) {
@@ -483,12 +1006,40 @@ document.addEventListener('DOMContentLoaded', function() {
                         <span class="rounded-circle d-inline-block flex-shrink-0" style="width: 12px; height: 12px; background-color: ${cal.color}"></span>
                         <span class="fw-semibold text-truncate small">${cal.title}</span>
                     </div>
-                    <button onclick="deleteCalendar(${cal.id})" class="btn btn-outline-danger btn-sm border-0 py-0 px-2" title="Eliminar calendario">
-                        <i class="bi bi-trash3"></i>
-                    </button>
+                    <div class="d-flex align-items-center gap-1 flex-shrink-0">
+                        <button onclick="editCalendar(${cal.id})" class="btn btn-outline-primary btn-sm border-0 py-0 px-2" title="Editar calendario">
+                            <i class="bi bi-pencil"></i>
+                        </button>
+                        <button onclick="deleteCalendar(${cal.id})" class="btn btn-outline-danger btn-sm border-0 py-0 px-2" title="Eliminar calendario">
+                            <i class="bi bi-trash3"></i>
+                        </button>
+                    </div>
                 </li>`;
         });
     }
+
+    window.editCalendar = function(id) {
+        const cal = currentCalendarsList.find(c => c.id === id);
+        if (!cal) return;
+
+        if (calIdInput) calIdInput.value = cal.id;
+        const titleInput = document.getElementById('cal-title');
+        const colorInput = document.getElementById('cal-color');
+        const urlInput = document.getElementById('cal-url');
+
+        if (titleInput) titleInput.value = cal.title;
+        if (colorInput) colorInput.value = cal.color;
+        if (urlInput) urlInput.value = cal.url;
+
+        if (btnSubmitCal) {
+            btnSubmitCal.className = 'btn btn-primary fw-semibold flex-grow-1 d-inline-flex align-items-center justify-content-center gap-2';
+        }
+        if (btnSubmitCalText) btnSubmitCalText.textContent = 'Actualizar Calendario';
+        if (btnSubmitCalIcon) btnSubmitCalIcon.className = 'bi bi-check-circle-fill';
+        if (btnCancelEditCal) btnCancelEditCal.classList.remove('d-none');
+
+        if (titleInput) titleInput.focus();
+    };
 
     window.deleteCalendar = async function(id) {
         try {
@@ -496,6 +1047,9 @@ document.addEventListener('DOMContentLoaded', function() {
                 method: 'DELETE'
             });
             if (response.ok) {
+                if (calIdInput && Number(calIdInput.value) === id) {
+                    resetCalendarForm();
+                }
                 loadCalendarList();
                 fetchRealEvents();
             }
@@ -521,23 +1075,26 @@ document.addEventListener('DOMContentLoaded', function() {
             const titleInput = document.getElementById('cal-title');
             const colorInput = document.getElementById('cal-color');
             const urlInput = document.getElementById('cal-url');
+            const editingCalId = calIdInput ? calIdInput.value : '';
 
-            const newCal = {
+            const calPayload = {
                 title: titleInput.value.trim(),
                 color: colorInput.value,
                 url: urlInput.value.trim()
             };
 
             try {
-                const response = await fetch('/api/calendars', {
-                    method: 'POST',
+                const url = editingCalId ? `/api/calendars/${editingCalId}` : '/api/calendars';
+                const method = editingCalId ? 'PUT' : 'POST';
+
+                const response = await fetch(url, {
+                    method,
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(newCal)
+                    body: JSON.stringify(calPayload)
                 });
 
                 if (response.ok) {
-                    form.reset();
-                    colorInput.value = "#3b82f6";
+                    resetCalendarForm();
                     loadCalendarList();
                     fetchRealEvents();
                 }
@@ -547,37 +1104,70 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
-    // 6. Sincronización milimétrica del tamaño de los 7 bloques de días
+    // 6. Sincronización milimétrica del tamaño de todos los bloques (Lunes a Sábado, Mes, Planificación y Domingo)
     function syncDayBlockHeights() {
         const monday = document.getElementById('monday');
         const sunday = document.getElementById('sunday');
-        if (!monday || !sunday) return;
+        const eventsBlock = document.getElementById('events-block');
+        const miniCalendarCard = document.getElementById('mini-calendar-card');
+        if (!monday) return;
 
         if (window.innerWidth < 768) {
             document.querySelectorAll('.day-block').forEach(el => {
                 el.style.height = '220px';
                 el.style.flex = '0 0 220px';
+                el.style.maxHeight = '220px';
+                el.style.minHeight = '220px';
             });
+            if (miniCalendar) miniCalendar.updateSize();
             return;
         }
 
-        // En pantallas medianas y grandes, Sunday ocupa limpiamente el espacio restante de la columna 2
-        sunday.style.height = '';
-        sunday.style.maxHeight = 'none';
-        sunday.style.flex = '1 1 auto';
+        // Limpiar estilos inline en todos los bloques para que el cálculo flex actúe de manera unificada
+        document.querySelectorAll('.day-block').forEach(el => {
+            el.style.height = '';
+            el.style.flex = '';
+            el.style.maxHeight = '';
+            el.style.minHeight = '';
+        });
+
+        // En pantallas medianas y grandes, sincronizar Mes, Planificación y Domingo exactamente a la altura de los días
+        const mondayHeight = Math.round(monday.getBoundingClientRect().height);
+        if (mondayHeight > 60) {
+            [miniCalendarCard, eventsBlock, sunday].forEach(el => {
+                if (el) {
+                    el.style.height = `${mondayHeight}px`;
+                    el.style.flex = `0 0 ${mondayHeight}px`;
+                    el.style.maxHeight = `${mondayHeight}px`;
+                    el.style.minHeight = `${mondayHeight}px`;
+                }
+            });
+        }
+
+        if (miniCalendar) {
+            miniCalendar.updateSize();
+        }
     }
 
     // Carga inicial
     updateWeekView(new Date());
     loadCalendarList();
+    loadPlanningEvents();
+    loadPlanningMarks();
     updateSyncStatusBadge();
     setTimeout(syncDayBlockHeights, 50);
 
     // Observador de cambio de tamaño para mantener simetría absoluta
-    window.addEventListener('resize', syncDayBlockHeights);
+    window.addEventListener('resize', () => {
+        syncDayBlockHeights();
+        if (miniCalendar) miniCalendar.updateSize();
+    });
     const mondayEl = document.getElementById('monday');
     if (window.ResizeObserver && mondayEl && mondayEl.parentElement) {
-        new ResizeObserver(syncDayBlockHeights).observe(mondayEl.parentElement);
+        new ResizeObserver(() => {
+            syncDayBlockHeights();
+            if (miniCalendar) miniCalendar.updateSize();
+        }).observe(mondayEl.parentElement);
     }
 
     // Comprobar sincronización y detectar cambios automáticamente cada 10 segundos
