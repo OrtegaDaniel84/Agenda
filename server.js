@@ -698,6 +698,10 @@ app.post('/api/events', async (req, res) => {
 // Servir archivos estáticos
 app.use('/js', express.static(path.join(__dirname, 'js')));
 app.use('/css', express.static(path.join(__dirname, 'css')));
+app.get('/favicon.ico', (req, res) => {
+  res.type('image/svg+xml');
+  res.sendFile(path.join(__dirname, 'favicon.svg'));
+});
 app.use(express.static(path.join(__dirname)));
 
 app.get('*', (req, res) => {
