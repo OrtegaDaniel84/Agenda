@@ -155,14 +155,20 @@ let nextPlanningId = planningEvents.reduce((max, e) => Math.max(max, Number(e.id
 app.use(cors());
 app.use(express.json());
 
-// Formatear fecha y hora en zona horaria Europe/Madrid
-function formatDateTime(date, timeZone = 'Europe/Madrid') {
+// Obtener la zona horaria del servidor donde corre la aplicación automáticamente
+function getServerTimeZone() {
+  return Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
+}
+
+// Formatear fecha y hora en formato español de 24h usando la zona horaria del servidor
+function formatDateTime(date, timeZone = getServerTimeZone()) {
   try {
     const d = new Date(date);
     if (isNaN(d.getTime())) return null;
 
-    const formatter = new Intl.DateTimeFormat('en-CA', {
-      timeZone,
+    const tz = timeZone || getServerTimeZone();
+    const formatter = new Intl.DateTimeFormat('es-ES', {
+      timeZone: tz,
       year: 'numeric',
       month: '2-digit',
       day: '2-digit',
@@ -411,10 +417,10 @@ setInterval(() => {
   syncCalendarsToDatabase(false);
 }, SYNC_INTERVAL_MS);
 
-// Sincronización inicial al levantar el servidor
+// Sincronización inicial al levantar el servidor (fuerza cálculo con zona horaria del servidor)
 setTimeout(() => {
   if (calendars.length > 0) {
-    syncCalendarsToDatabase(false);
+    syncCalendarsToDatabase(true);
   }
 }, 1500);
 
@@ -426,7 +432,9 @@ app.get('/health', (req, res) => {
     dataDir: DATA_DIR,
     calendarsCount: calendars.length,
     eventsCount: cachedEvents.length,
-    lastSync: syncMeta.lastSync
+    lastSync: syncMeta.lastSync,
+    serverTimeZone: getServerTimeZone(),
+    serverTime: new Date().toISOString()
   });
 });
 
@@ -663,7 +671,9 @@ app.get('/api/sync-status', (req, res) => {
     eventsCount: cachedEvents.length,
     status: syncMeta.lastStatus,
     dataVersion: syncMeta.dataVersion || 1,
-    lastChangedAt: syncMeta.lastChangedAt || syncMeta.lastSync
+    lastChangedAt: syncMeta.lastChangedAt || syncMeta.lastSync,
+    serverTimeZone: getServerTimeZone(),
+    serverTime: new Date().toISOString()
   });
 });
 

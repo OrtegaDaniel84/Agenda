@@ -1,10 +1,212 @@
 document.addEventListener('DOMContentLoaded', function() {
+    // Diccionario de internacionalización (Español / Inglés)
+    const I18N = {
+        es: {
+            pageTitle: 'Agenda Semanal',
+            weekPrefix: 'Semana',
+            loadingWeek: 'Cargando semana...',
+            dbUpToDate: 'Base de datos al día',
+            dbUpToDateWithTime: (t) => `BD al día (${t})`,
+            dbSyncing: 'Actualizando base de datos...',
+            dbNotSynced: 'BD sin sincronizar',
+            dbOffline: 'Sin conexión',
+            dbUnavailable: 'BD no disponible',
+            dbReconnecting: 'Reconectando...',
+            dbTooltipDefault: 'Los calendarios se consultan cada 15 min y se guardan en la base de datos',
+            dbTooltipTime: (t) => `BD actualizada a las ${t} (hora del servidor)`,
+            refreshBtn: 'Actualizar',
+            refreshingBtn: 'Consultando...',
+            refreshTooltip: 'Forzar consulta a los calendarios y guardar en la base de datos',
+            errorRefresh: 'Error al consultar',
+            settingsBtn: 'Configurar Calendarios',
+            
+            // Columna 1: Anual
+            annualCalendarTitle: 'Calendario Anual',
+            markingModeTooltip: 'Modo marcar días activo',
+            markingWith: (name) => `Marcando con: ${name}`,
+            months: ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'],
+            daysShort: ['D', 'L', 'M', 'X', 'J', 'V', 'S'],
+            dateTooltip: (d, m, y) => `${d} de ${m} de ${y}`,
+            maxEventsPerDay: '¡Máximo 4 eventos por día!',
+
+            // Columna 2: Mes
+            monthlyCalendarTitle: 'Calendario Mensual',
+            todayBtn: 'Hoy',
+            todayBtnTooltip: 'Volver al día y semana actual',
+
+            // Planificación
+            planningTitle: 'Planificación',
+            addPlanningBtn: 'Agregar',
+            addPlanningTooltip: 'Crear evento de planificación',
+            noPlanningEvents: 'Sin eventos de planificación.',
+            addPlanningEventLink: '+ Agregar evento',
+            dayUnit: (n) => n === 1 ? 'día' : 'días',
+            dayMarkedTooltip: (n) => `${n} ${n === 1 ? 'día marcado en el calendario anual' : 'días marcados en el calendario anual'}`,
+            markingBadge: 'Marcando',
+            editEvent: 'Editar evento',
+            deleteEvent: 'Eliminar evento',
+            clickToDeselect: 'Haz clic para deseleccionar',
+            clickToSelect: 'Haz clic para seleccionar y marcar días en el calendario anual',
+            deselectEventTooltip: 'Deseleccionar evento',
+
+            // Días de la semana
+            daysOfWeek: {
+                sunday: 'Domingo',
+                monday: 'Lunes',
+                tuesday: 'Martes',
+                wednesday: 'Miércoles',
+                thursday: 'Jueves',
+                friday: 'Viernes',
+                saturday: 'Sábado'
+            },
+            loadingEvents: 'Cargando eventos...',
+            reconnectingEvents: 'Reconectando eventos...',
+
+            // Modal Calendarios
+            modalCalendarsTitle: 'Fuentes de Calendario',
+            calTitleLabel: 'Título del calendario',
+            calTitlePlaceholder: 'Ej: Trabajo, Personal, Clases',
+            calColorLabel: 'Color',
+            calColorTitle: 'Selecciona un color',
+            calUrlLabel: 'URL iCal / Webcal',
+            calUrlPlaceholder: 'https://... o webcal://...',
+            btnAddCal: 'Añadir Calendario',
+            btnUpdateCal: 'Actualizar Calendario',
+            btnCancel: 'Cancelar',
+            activeCalendarsTitle: 'Calendarios Activos',
+            noCalendarsConfigured: 'No hay calendarios configurados aún',
+            editCalendar: 'Editar calendario',
+            deleteCalendar: 'Eliminar calendario',
+            btnClose: 'Cerrar',
+
+            // Modal Planificación
+            newPlanningTitle: 'Nuevo Evento de Planificación',
+            editPlanningTitle: 'Editar Evento de Planificación',
+            planningTitleLabel: 'Título del evento',
+            planningTitlePlaceholder: 'Ej: Revisión de sprint, Llamada con cliente...',
+            planningColorLabel: 'Color',
+            planningColorTitle: 'Selecciona un color para el evento',
+            quickPaletteLabel: 'Paleta rápida',
+            savePlanningEvent: 'Guardar Evento',
+            updatePlanningEvent: 'Actualizar Evento'
+        },
+        en: {
+            pageTitle: 'Weekly Planner',
+            weekPrefix: 'Week',
+            loadingWeek: 'Loading week...',
+            dbUpToDate: 'Database up to date',
+            dbUpToDateWithTime: (t) => `DB up to date (${t})`,
+            dbSyncing: 'Updating database...',
+            dbNotSynced: 'DB not synced',
+            dbOffline: 'Offline',
+            dbUnavailable: 'DB unavailable',
+            dbReconnecting: 'Reconnecting...',
+            dbTooltipDefault: 'Calendars are fetched periodically and stored in database',
+            dbTooltipTime: (t) => `DB updated at ${t} (server time)`,
+            refreshBtn: 'Refresh',
+            refreshingBtn: 'Checking...',
+            refreshTooltip: 'Force check remote calendars and save to database',
+            errorRefresh: 'Error checking',
+            settingsBtn: 'Configure Calendars',
+            
+            // Columna 1: Anual
+            annualCalendarTitle: 'Annual Calendar',
+            markingModeTooltip: 'Day marking mode active',
+            markingWith: (name) => `Marking with: ${name}`,
+            months: ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'],
+            daysShort: ['S', 'M', 'T', 'W', 'T', 'F', 'S'],
+            dateTooltip: (d, m, y) => `${m} ${d}, ${y}`,
+            maxEventsPerDay: 'Maximum 4 events per day!',
+
+            // Columna 2: Mes
+            monthlyCalendarTitle: 'Monthly Calendar',
+            todayBtn: 'Today',
+            todayBtnTooltip: 'Return to current day and week',
+
+            // Planificación
+            planningTitle: 'Planning',
+            addPlanningBtn: 'Add',
+            addPlanningTooltip: 'Create planning event',
+            noPlanningEvents: 'No planning events yet.',
+            addPlanningEventLink: '+ Add event',
+            dayUnit: (n) => n === 1 ? 'day' : 'days',
+            dayMarkedTooltip: (n) => `${n} ${n === 1 ? 'day marked on annual calendar' : 'days marked on annual calendar'}`,
+            markingBadge: 'Marking',
+            editEvent: 'Edit event',
+            deleteEvent: 'Delete event',
+            clickToDeselect: 'Click to deselect',
+            clickToSelect: 'Click to select and mark days on annual calendar',
+            deselectEventTooltip: 'Deselect event',
+
+            // Días de la semana
+            daysOfWeek: {
+                sunday: 'Sunday',
+                monday: 'Monday',
+                tuesday: 'Tuesday',
+                wednesday: 'Wednesday',
+                thursday: 'Thursday',
+                friday: 'Friday',
+                saturday: 'Saturday'
+            },
+            loadingEvents: 'Loading events...',
+            reconnectingEvents: 'Reconnecting events...',
+
+            // Modal Calendarios
+            modalCalendarsTitle: 'Calendar Sources',
+            calTitleLabel: 'Calendar title',
+            calTitlePlaceholder: 'e.g., Work, Personal, Classes',
+            calColorLabel: 'Color',
+            calColorTitle: 'Select a color',
+            calUrlLabel: 'iCal / Webcal URL',
+            calUrlPlaceholder: 'https://... or webcal://...',
+            btnAddCal: 'Add Calendar',
+            btnUpdateCal: 'Update Calendar',
+            btnCancel: 'Cancel',
+            activeCalendarsTitle: 'Active Calendars',
+            noCalendarsConfigured: 'No calendars configured yet',
+            editCalendar: 'Edit calendar',
+            deleteCalendar: 'Delete calendar',
+            btnClose: 'Close',
+
+            // Modal Planificación
+            newPlanningTitle: 'New Planning Event',
+            editPlanningTitle: 'Edit Planning Event',
+            planningTitleLabel: 'Event title',
+            planningTitlePlaceholder: 'e.g., Sprint review, Client call...',
+            planningColorLabel: 'Color',
+            planningColorTitle: 'Select a color for the event',
+            quickPaletteLabel: 'Quick palette',
+            savePlanningEvent: 'Save Event',
+            updatePlanningEvent: 'Update Event'
+        }
+    };
+
+    // Idioma activo (persistido en localStorage)
+    let currentLang = localStorage.getItem('agenda_language') || 'es';
+    if (currentLang !== 'es' && currentLang !== 'en') currentLang = 'es';
+
     // Variables globales para la semana actual en vista
     let currentSunday, currentSaturday, weekDates = {};
     const daysIds = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
 
-    // Función auxiliar para formatear fechas a YYYY-MM-DD en hora local
+    // Zona horaria del servidor (se sincroniza con /api/sync-status)
+    let serverTimeZone = null;
+
+    // Obtener la fecha/hora actual alineada con la zona horaria del servidor
+    function getServerNow() {
+        if (!serverTimeZone) return new Date();
+        try {
+            const str = new Date().toLocaleString('en-US', { timeZone: serverTimeZone });
+            const d = new Date(str);
+            return isNaN(d.getTime()) ? new Date() : d;
+        } catch {
+            return new Date();
+        }
+    }
+
+    // Función auxiliar para formatear fechas a YYYY-MM-DD en hora local/servidor
     function formatLocalDate(d) {
+        if (!d) return '';
         const year = d.getFullYear();
         const month = String(d.getMonth() + 1).padStart(2, '0');
         const day = String(d.getDate()).padStart(2, '0');
@@ -28,7 +230,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const miniCalendarEl = document.getElementById('mini-calendar');
     const miniCalendar = new FullCalendar.Calendar(miniCalendarEl, {
         initialView: 'dayGridMonth',
-        locale: 'es',
+        locale: currentLang,
         firstDay: 0, // Domingo es el primer día de la semana
         height: 'auto',
         aspectRatio: 1.25,
@@ -69,7 +271,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const btnMiniToday = document.getElementById('btn-mini-today');
     if (btnMiniToday) {
         btnMiniToday.addEventListener('click', () => {
-            const today = new Date();
+            const today = getServerNow();
             miniCalendar.today();
             updateWeekView(today);
         });
@@ -92,16 +294,18 @@ document.addEventListener('DOMContentLoaded', function() {
         currentSaturday.setDate(currentSunday.getDate() + 6);
 
         // Actualizar título superior con formato amigable
+        const t = I18N[currentLang];
+        const localeCode = currentLang === 'es' ? 'es-ES' : 'en-US';
         const formatOpt = { day: 'numeric', month: 'short' };
         const formatOptYear = { day: 'numeric', month: 'short', year: 'numeric' };
         const labelEl = document.getElementById('current-date-label');
         if (labelEl) {
             labelEl.innerText =
-                `Semana: ${currentSunday.toLocaleDateString('es-ES', formatOpt)} - ${currentSaturday.toLocaleDateString('es-ES', formatOptYear)}`;
+                `${t.weekPrefix}: ${currentSunday.toLocaleDateString(localeCode, formatOpt)} - ${currentSaturday.toLocaleDateString(localeCode, formatOptYear)}`;
         }
 
         weekDates = {};
-        const todayFormatted = formatLocalDate(new Date());
+        const todayFormatted = formatLocalDate(getServerNow());
 
         daysIds.forEach((id, index) => {
             const currentDay = new Date(currentSunday);
@@ -185,8 +389,9 @@ document.addEventListener('DOMContentLoaded', function() {
             yearBadge.innerText = year;
         }
 
-        const months = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
-        const daysShort = ['D', 'L', 'M', 'X', 'J', 'V', 'S'];
+        const t = I18N[currentLang];
+        const months = t.months;
+        const daysShort = t.daysShort;
 
         months.forEach((monthName, monthIndex) => {
             const monthDiv = document.createElement('div');
@@ -216,7 +421,7 @@ document.addEventListener('DOMContentLoaded', function() {
             }
 
             // Números de los días
-            const today = new Date();
+            const today = getServerNow();
             for (let day = 1; day <= totalDays; day++) {
                 const currentDayOfWeek = new Date(year, monthIndex, day).getDay();
                 const isToday = day === today.getDate() && monthIndex === today.getMonth() && year === today.getFullYear();
@@ -244,7 +449,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     styleAttr = `style="background: ${bg};"`;
                 }
 
-                let tooltipText = `${day} de ${monthName} de ${year}`;
+                let tooltipText = t.dateTooltip(day, monthName, year);
                 if (hasMarks) {
                     tooltipText += ` - ${visibleEvents.map(e => e.title).join(', ')}`;
                 }
@@ -296,7 +501,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 const feedbackEl = document.getElementById('active-event-name');
                 if (feedbackEl) {
                     const origText = feedbackEl.textContent;
-                    feedbackEl.textContent = '¡Máximo 4 eventos por día!';
+                    feedbackEl.textContent = I18N[currentLang].maxEventsPerDay;
                     feedbackEl.classList.add('text-danger');
                     setTimeout(() => {
                         feedbackEl.textContent = origText;
@@ -335,7 +540,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 if (data.limitReached) {
                     const feedbackEl = document.getElementById('active-event-name');
                     if (feedbackEl) {
-                        feedbackEl.textContent = '¡Máximo 4 eventos por día!';
+                        feedbackEl.textContent = I18N[currentLang].maxEventsPerDay;
                     }
                 }
             }
@@ -351,7 +556,7 @@ document.addEventListener('DOMContentLoaded', function() {
         const y = parseInt(cell.dataset.year, 10);
         const m = parseInt(cell.dataset.month, 10);
         const d = parseInt(cell.dataset.day, 10);
-        const today = new Date();
+        const today = getServerNow();
         const isToday = d === today.getDate() && m === today.getMonth() && y === today.getFullYear();
         const isSunday = new Date(y, m, d).getDay() === 0;
 
@@ -375,8 +580,8 @@ document.addEventListener('DOMContentLoaded', function() {
         }
         cell.className = cellClass;
 
-        const months = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
-        let tooltipText = `${d} de ${months[m]} de ${y}`;
+        const t = I18N[currentLang];
+        let tooltipText = t.dateTooltip(d, t.months[m], y);
         if (hasMarks) {
             tooltipText += ` - ${visibleEvents.map(e => e.title).join(', ')}`;
         }
@@ -402,10 +607,11 @@ document.addEventListener('DOMContentLoaded', function() {
     // Actualiza la etiqueta de estado de la base de datos y detecta cambios de forma resiliente
     async function updateSyncStatusBadge() {
         if (!syncTimeLabel) return;
+        const t = I18N[currentLang];
         // Evitar sondeo si la pestaña no está visible o el navegador está sin conexión
         if (typeof document !== 'undefined' && document.hidden) return;
         if (typeof navigator !== 'undefined' && navigator.onLine === false) {
-            syncTimeLabel.textContent = 'Sin conexión';
+            syncTimeLabel.textContent = t.dbOffline;
             if (syncStatusIcon) syncStatusIcon.className = 'bi bi-wifi-off text-warning';
             return;
         }
@@ -424,18 +630,32 @@ document.addEventListener('DOMContentLoaded', function() {
                 consecutiveSyncErrors = 0;
                 const data = await res.json();
 
+                // Sincronizar la zona horaria del servidor
+                if (data.serverTimeZone) {
+                    serverTimeZone = data.serverTimeZone;
+                }
+
                 // Actualizar icono y texto de estado
                 if (data.isSyncing) {
-                    syncTimeLabel.textContent = 'Actualizando base de datos...';
+                    syncTimeLabel.textContent = t.dbSyncing;
                     if (syncStatusIcon) syncStatusIcon.className = 'bi bi-arrow-repeat text-primary';
                 } else if (data.lastSync) {
-                    const syncDate = new Date(data.lastSync);
-                    const hours = String(syncDate.getHours()).padStart(2, '0');
-                    const minutes = String(syncDate.getMinutes()).padStart(2, '0');
-                    syncTimeLabel.textContent = `BD al día (${hours}:${minutes})`;
+                    const localeCode = currentLang === 'es' ? 'es-ES' : 'en-US';
+                    const timeFormatter = new Intl.DateTimeFormat(localeCode, {
+                        timeZone: serverTimeZone || undefined,
+                        hour: '2-digit',
+                        minute: '2-digit',
+                        hour12: false
+                    });
+                    const timeStr = timeFormatter.format(new Date(data.lastSync));
+                    syncTimeLabel.textContent = t.dbUpToDateWithTime(timeStr);
                     if (syncStatusIcon) syncStatusIcon.className = 'bi bi-database-check text-success';
+                    const syncBadge = document.getElementById('sync-info-badge');
+                    if (syncBadge) {
+                        syncBadge.title = t.dbTooltipTime(timeStr);
+                    }
                 } else {
-                    syncTimeLabel.textContent = 'BD sin sincronizar';
+                    syncTimeLabel.textContent = t.dbNotSynced;
                     if (syncStatusIcon) syncStatusIcon.className = 'bi bi-database text-secondary';
                 }
 
@@ -463,7 +683,7 @@ document.addEventListener('DOMContentLoaded', function() {
             } else {
                 consecutiveSyncErrors++;
                 if (consecutiveSyncErrors >= 3 && syncTimeLabel) {
-                    syncTimeLabel.textContent = 'BD no disponible';
+                    syncTimeLabel.textContent = t.dbUnavailable;
                     if (syncStatusIcon) syncStatusIcon.className = 'bi bi-exclamation-triangle text-warning';
                 }
             }
@@ -471,7 +691,7 @@ document.addEventListener('DOMContentLoaded', function() {
             consecutiveSyncErrors++;
             // Manejo silencioso y resiliente de fallos temporales de red o reconexiones del servidor
             if (consecutiveSyncErrors >= 3 && syncTimeLabel) {
-                syncTimeLabel.textContent = 'Reconectando...';
+                syncTimeLabel.textContent = t.dbReconnecting;
                 if (syncStatusIcon) syncStatusIcon.className = 'bi bi-arrow-clockwise text-muted';
             }
         }
@@ -491,10 +711,11 @@ document.addEventListener('DOMContentLoaded', function() {
     // Forzar consulta manual a los calendarios remotos
     async function forceRefreshCalendars() {
         if (!btnRefresh) return;
+        const t = I18N[currentLang];
         btnRefresh.disabled = true;
         if (refreshIcon) refreshIcon.classList.add('spin');
-        if (refreshText) refreshText.textContent = 'Consultando...';
-        if (syncTimeLabel) syncTimeLabel.textContent = 'Consultando calendarios...';
+        if (refreshText) refreshText.textContent = t.refreshingBtn;
+        if (syncTimeLabel) syncTimeLabel.textContent = t.refreshingBtn;
 
         try {
             const response = await fetch('/api/refresh', {
@@ -518,10 +739,10 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         } catch (error) {
             console.warn('[Agenda] Problema temporal al forzar actualización:', error.message || error);
-            if (syncTimeLabel) syncTimeLabel.textContent = 'Error al consultar';
+            if (syncTimeLabel) syncTimeLabel.textContent = t.errorRefresh;
         } finally {
             if (refreshIcon) refreshIcon.classList.remove('spin');
-            if (refreshText) refreshText.textContent = 'Actualizar';
+            if (refreshText) refreshText.textContent = t.refreshBtn;
             btnRefresh.disabled = false;
         }
     }
@@ -532,7 +753,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
     function renderEvents(events) {
         document.querySelectorAll('.events-list').forEach(el => el.innerHTML = '');
-        const now = new Date();
+        const now = getServerNow();
         const todayStr = formatLocalDate(now);
         const currentHours = now.getHours();
         const currentMinutes = now.getMinutes();
@@ -601,12 +822,13 @@ document.addEventListener('DOMContentLoaded', function() {
     const btnAddPlanningEvent = document.getElementById('btn-add-planning-event');
 
     function resetPlanningModal() {
+        const t = I18N[currentLang];
         if (formPlanning) formPlanning.reset();
         if (planningIdInput) planningIdInput.value = '';
         if (planningColorInput) planningColorInput.value = '#0d6efd';
-        if (modalPlanningTitleText) modalPlanningTitleText.textContent = 'Nuevo Evento de Planificación';
+        if (modalPlanningTitleText) modalPlanningTitleText.textContent = t.newPlanningTitle;
         if (modalPlanningIcon) modalPlanningIcon.className = 'bi bi-calendar2-plus text-primary';
-        if (btnSubmitPlanningText) btnSubmitPlanningText.textContent = 'Guardar Evento';
+        if (btnSubmitPlanningText) btnSubmitPlanningText.textContent = t.savePlanningEvent;
     }
 
     if (btnAddPlanningEvent) {
@@ -656,7 +878,7 @@ document.addEventListener('DOMContentLoaded', function() {
             if (ev) {
                 if (activeBar) activeBar.classList.remove('d-none');
                 if (activeColorBox) activeColorBox.style.backgroundColor = ev.color;
-                if (activeName) activeName.textContent = `Marcando con: ${ev.title}`;
+                if (activeName) activeName.textContent = I18N[currentLang].markingWith(ev.title);
 
                 if (annualBadge) {
                     annualBadge.classList.remove('d-none');
@@ -711,11 +933,12 @@ document.addEventListener('DOMContentLoaded', function() {
 
     function updatePlanningEventsDayCounts() {
         if (!planningContainer) return;
+        const t = I18N[currentLang];
         planningContainer.querySelectorAll('.planning-event-days-badge[data-event-days-id]').forEach(badge => {
             const id = Number(badge.dataset.eventDaysId);
             const count = countDaysForPlanningEvent(id);
-            badge.textContent = `${count} ${count === 1 ? 'día' : 'días'}`;
-            badge.title = `${count} ${count === 1 ? 'día marcado en el calendario anual' : 'días marcados en el calendario anual'}`;
+            badge.textContent = `${count} ${t.dayUnit(count)}`;
+            badge.title = t.dayMarkedTooltip(count);
             if (count > 0) {
                 badge.classList.add('has-days');
             } else {
@@ -727,14 +950,15 @@ document.addEventListener('DOMContentLoaded', function() {
     function renderPlanningEvents() {
         if (!planningContainer) return;
         planningContainer.innerHTML = '';
+        const t = I18N[currentLang];
 
         if (planningEventsList.length === 0) {
             planningContainer.innerHTML = `
                 <div class="text-center text-muted small py-3 px-2">
                     <i class="bi bi-calendar-check d-block fs-5 mb-1 opacity-50"></i>
-                    <span>Sin eventos de planificación.</span>
+                    <span>${t.noPlanningEvents}</span>
                     <button type="button" class="btn btn-link btn-sm p-0 d-block mx-auto mt-1 text-decoration-none fw-semibold" data-bs-toggle="modal" data-bs-target="#modal-add-planning-event">
-                        + Agregar evento
+                        ${t.addPlanningEventLink}
                     </button>
                 </div>
             `;
@@ -748,21 +972,21 @@ document.addEventListener('DOMContentLoaded', function() {
             itemEl.className = `planning-event-item ${isSelected ? 'planning-event-selected' : ''}`;
             itemEl.dataset.id = ev.id;
             itemEl.setAttribute('role', 'button');
-            itemEl.setAttribute('title', isSelected ? 'Haz clic para deseleccionar' : 'Haz clic para seleccionar y marcar días en el calendario anual');
+            itemEl.setAttribute('title', isSelected ? t.clickToDeselect : t.clickToSelect);
             itemEl.innerHTML = `
                 <span class="planning-color-box flex-shrink-0" style="background-color: ${ev.color};" title="Color: ${ev.color}"></span>
                 <div class="d-flex align-items-center text-truncate flex-grow-1 me-1">
                     <span class="fw-medium text-dark text-truncate small" title="${ev.title}">${ev.title}</span>
                 </div>
-                <span class="planning-event-days-badge ${daysCount > 0 ? 'has-days' : ''} flex-shrink-0" data-event-days-id="${ev.id}" title="${daysCount} ${daysCount === 1 ? 'día marcado en el calendario anual' : 'días marcados en el calendario anual'}">
-                    ${daysCount} ${daysCount === 1 ? 'día' : 'días'}
+                <span class="planning-event-days-badge ${daysCount > 0 ? 'has-days' : ''} flex-shrink-0" data-event-days-id="${ev.id}" title="${t.dayMarkedTooltip(daysCount)}">
+                    ${daysCount} ${t.dayUnit(daysCount)}
                 </span>
-                ${isSelected ? '<span class="badge bg-primary text-white py-0 px-1 fs-8 flex-shrink-0 ms-1"><i class="bi bi-brush-fill me-1" style="font-size:0.6rem;"></i>Marcando</span>' : ''}
+                ${isSelected ? `<span class="badge bg-primary text-white py-0 px-1 fs-8 flex-shrink-0 ms-1"><i class="bi bi-brush-fill me-1" style="font-size:0.6rem;"></i>${t.markingBadge}</span>` : ''}
                 <div class="d-flex align-items-center gap-1 flex-shrink-0 ms-1">
-                    <button type="button" class="btn btn-sm btn-outline-primary border-0 p-0 px-1 opacity-75 hover-opacity-100 btn-edit-planning" title="Editar evento">
+                    <button type="button" class="btn btn-sm btn-outline-primary border-0 p-0 px-1 opacity-75 hover-opacity-100 btn-edit-planning" title="${t.editEvent}">
                         <i class="bi bi-pencil" style="font-size: 0.75rem;"></i>
                     </button>
-                    <button type="button" class="btn btn-sm btn-outline-danger border-0 p-0 px-1 opacity-75 hover-opacity-100 btn-delete-planning" title="Eliminar evento">
+                    <button type="button" class="btn btn-sm btn-outline-danger border-0 p-0 px-1 opacity-75 hover-opacity-100 btn-delete-planning" title="${t.deleteEvent}">
                         <i class="bi bi-trash3" style="font-size: 0.75rem;"></i>
                     </button>
                 </div>
@@ -811,14 +1035,15 @@ document.addEventListener('DOMContentLoaded', function() {
         const ev = planningEventsList.find(e => e.id === id);
         if (!ev) return;
 
+        const t = I18N[currentLang];
         if (planningIdInput) planningIdInput.value = ev.id;
         const titleEl = document.getElementById('planning-title');
         if (titleEl) titleEl.value = ev.title;
         if (planningColorInput) planningColorInput.value = ev.color;
 
-        if (modalPlanningTitleText) modalPlanningTitleText.textContent = 'Editar Evento de Planificación';
+        if (modalPlanningTitleText) modalPlanningTitleText.textContent = t.editPlanningTitle;
         if (modalPlanningIcon) modalPlanningIcon.className = 'bi bi-pencil-square text-primary';
-        if (btnSubmitPlanningText) btnSubmitPlanningText.textContent = 'Actualizar Evento';
+        if (btnSubmitPlanningText) btnSubmitPlanningText.textContent = t.updatePlanningEvent;
 
         if (modalPlanningEl && window.bootstrap && window.bootstrap.Modal) {
             bootstrap.Modal.getOrCreateInstance(modalPlanningEl).show();
@@ -909,14 +1134,15 @@ document.addEventListener('DOMContentLoaded', function() {
         if (!currentSunday || !currentSaturday) return;
         const startStr = formatLocalDate(currentSunday);
         const endStr = formatLocalDate(currentSaturday);
+        const t = I18N[currentLang];
 
         document.querySelectorAll('.events-list').forEach(el => {
             el.innerHTML = `
                 <div class="d-flex justify-content-center align-items-center py-3 text-muted small">
                     <div class="spinner-border spinner-border-sm text-primary me-2" role="status">
-                        <span class="visually-hidden">Cargando...</span>
+                        <span class="visually-hidden">${t.loadingEvents}</span>
                     </div>
-                    Cargando eventos...
+                    ${t.loadingEvents}
                 </div>
             `;
         });
@@ -934,7 +1160,7 @@ document.addEventListener('DOMContentLoaded', function() {
         } catch (error) {
             console.warn('[Agenda] Problema temporal al conectar con la base de datos de eventos:', error.message || error);
             document.querySelectorAll('.events-list').forEach(el => {
-                el.innerHTML = '<div class="text-secondary small text-center py-2"><i class="bi bi-clock-history me-1"></i>Reconectando eventos...</div>';
+                el.innerHTML = `<div class="text-secondary small text-center py-2"><i class="bi bi-clock-history me-1"></i>${t.reconnectingEvents}</div>`;
             });
         }
     }
@@ -951,6 +1177,7 @@ document.addEventListener('DOMContentLoaded', function() {
     let currentCalendarsList = [];
 
     function resetCalendarForm() {
+        const t = I18N[currentLang];
         if (form) form.reset();
         if (calIdInput) calIdInput.value = '';
         const colorInput = document.getElementById('cal-color');
@@ -958,7 +1185,7 @@ document.addEventListener('DOMContentLoaded', function() {
         if (btnSubmitCal) {
             btnSubmitCal.className = 'btn btn-success fw-semibold flex-grow-1 d-inline-flex align-items-center justify-content-center gap-2';
         }
-        if (btnSubmitCalText) btnSubmitCalText.textContent = 'Añadir Calendario';
+        if (btnSubmitCalText) btnSubmitCalText.textContent = t.btnAddCal;
         if (btnSubmitCalIcon) btnSubmitCalIcon.className = 'bi bi-plus-circle-fill';
         if (btnCancelEditCal) btnCancelEditCal.classList.add('d-none');
     }
@@ -994,8 +1221,9 @@ document.addEventListener('DOMContentLoaded', function() {
     function renderCalendarList(calendars) {
         if (!list) return;
         list.innerHTML = '';
+        const t = I18N[currentLang];
         if (calendars.length === 0) {
-            list.innerHTML = `<li class="list-group-item text-center text-muted small py-3">No hay calendarios configurados aún</li>`;
+            list.innerHTML = `<li class="list-group-item text-center text-muted small py-3">${t.noCalendarsConfigured}</li>`;
             return;
         }
 
@@ -1007,10 +1235,10 @@ document.addEventListener('DOMContentLoaded', function() {
                         <span class="fw-semibold text-truncate small">${cal.title}</span>
                     </div>
                     <div class="d-flex align-items-center gap-1 flex-shrink-0">
-                        <button onclick="editCalendar(${cal.id})" class="btn btn-outline-primary btn-sm border-0 py-0 px-2" title="Editar calendario">
+                        <button onclick="editCalendar(${cal.id})" class="btn btn-outline-primary btn-sm border-0 py-0 px-2" title="${t.editCalendar}">
                             <i class="bi bi-pencil"></i>
                         </button>
-                        <button onclick="deleteCalendar(${cal.id})" class="btn btn-outline-danger btn-sm border-0 py-0 px-2" title="Eliminar calendario">
+                        <button onclick="deleteCalendar(${cal.id})" class="btn btn-outline-danger btn-sm border-0 py-0 px-2" title="${t.deleteCalendar}">
                             <i class="bi bi-trash3"></i>
                         </button>
                     </div>
@@ -1021,6 +1249,7 @@ document.addEventListener('DOMContentLoaded', function() {
     window.editCalendar = function(id) {
         const cal = currentCalendarsList.find(c => c.id === id);
         if (!cal) return;
+        const t = I18N[currentLang];
 
         if (calIdInput) calIdInput.value = cal.id;
         const titleInput = document.getElementById('cal-title');
@@ -1034,7 +1263,7 @@ document.addEventListener('DOMContentLoaded', function() {
         if (btnSubmitCal) {
             btnSubmitCal.className = 'btn btn-primary fw-semibold flex-grow-1 d-inline-flex align-items-center justify-content-center gap-2';
         }
-        if (btnSubmitCalText) btnSubmitCalText.textContent = 'Actualizar Calendario';
+        if (btnSubmitCalText) btnSubmitCalText.textContent = t.btnUpdateCal;
         if (btnSubmitCalIcon) btnSubmitCalIcon.className = 'bi bi-check-circle-fill';
         if (btnCancelEditCal) btnCancelEditCal.classList.remove('d-none');
 
@@ -1149,8 +1378,166 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 
+    // 7. Funciones de internacionalización y cambio dinámico de idioma
+    function applyLanguageToStaticElements() {
+        const t = I18N[currentLang];
+        document.title = t.pageTitle;
+        document.documentElement.lang = currentLang;
+
+        // Header
+        const refreshText = document.getElementById('refresh-text');
+        if (refreshText) refreshText.textContent = t.refreshBtn;
+        const btnRefreshEl = document.getElementById('btn-refresh');
+        if (btnRefreshEl) btnRefreshEl.title = t.refreshTooltip;
+
+        const settingsText = document.getElementById('settings-text');
+        if (settingsText) settingsText.textContent = t.settingsBtn;
+
+        // Columna 1: Calendario Anual
+        const annualTitle = document.getElementById('annual-calendar-title');
+        if (annualTitle) annualTitle.textContent = t.annualCalendarTitle;
+        const annualMarkingBadgeEl = document.getElementById('annual-marking-badge');
+        if (annualMarkingBadgeEl) annualMarkingBadgeEl.title = t.markingModeTooltip;
+
+        // Columna 2: Calendario Mensual
+        const monthlyTitle = document.getElementById('monthly-calendar-title');
+        if (monthlyTitle) monthlyTitle.textContent = t.monthlyCalendarTitle;
+        const btnMiniTodayEl = document.getElementById('btn-mini-today');
+        if (btnMiniTodayEl) {
+            btnMiniTodayEl.textContent = t.todayBtn;
+            btnMiniTodayEl.title = t.todayBtnTooltip;
+        }
+
+        // Bloque de Planificación
+        const planningTitle = document.getElementById('planning-block-title');
+        if (planningTitle) planningTitle.textContent = t.planningTitle;
+        const btnAddPlanningText = document.getElementById('btn-add-planning-text');
+        if (btnAddPlanningText) btnAddPlanningText.textContent = t.addPlanningBtn;
+        const btnAddPlanning = document.getElementById('btn-add-planning-event');
+        if (btnAddPlanning) btnAddPlanning.title = t.addPlanningTooltip;
+        const btnDeselect = document.getElementById('btn-deselect-event');
+        if (btnDeselect) btnDeselect.title = t.deselectEventTooltip;
+
+        // Días de la semana
+        const labelSunday = document.getElementById('label-sunday');
+        if (labelSunday) labelSunday.textContent = t.daysOfWeek.sunday;
+        const labelMonday = document.getElementById('label-monday');
+        if (labelMonday) labelMonday.textContent = t.daysOfWeek.monday;
+        const labelTuesday = document.getElementById('label-tuesday');
+        if (labelTuesday) labelTuesday.textContent = t.daysOfWeek.tuesday;
+        const labelWednesday = document.getElementById('label-wednesday');
+        if (labelWednesday) labelWednesday.textContent = t.daysOfWeek.wednesday;
+        const labelThursday = document.getElementById('label-thursday');
+        if (labelThursday) labelThursday.textContent = t.daysOfWeek.thursday;
+        const labelFriday = document.getElementById('label-friday');
+        if (labelFriday) labelFriday.textContent = t.daysOfWeek.friday;
+        const labelSaturday = document.getElementById('label-saturday');
+        if (labelSaturday) labelSaturday.textContent = t.daysOfWeek.saturday;
+
+        // Modal Calendarios
+        const modalCalTitle = document.getElementById('modal-calendars-title');
+        if (modalCalTitle) modalCalTitle.textContent = t.modalCalendarsTitle;
+        const lblCalTitle = document.getElementById('lbl-cal-title');
+        if (lblCalTitle) lblCalTitle.textContent = t.calTitleLabel;
+        const inputCalTitle = document.getElementById('cal-title');
+        if (inputCalTitle) inputCalTitle.placeholder = t.calTitlePlaceholder;
+        const lblCalColor = document.getElementById('lbl-cal-color');
+        if (lblCalColor) lblCalColor.textContent = t.calColorLabel;
+        const inputCalColor = document.getElementById('cal-color');
+        if (inputCalColor) inputCalColor.title = t.calColorTitle;
+        const lblCalUrl = document.getElementById('lbl-cal-url');
+        if (lblCalUrl) lblCalUrl.textContent = t.calUrlLabel;
+        const inputCalUrl = document.getElementById('cal-url');
+        if (inputCalUrl) inputCalUrl.placeholder = t.calUrlPlaceholder;
+        const btnSubmitCalText = document.getElementById('btn-submit-cal-text');
+        const calIdInput = document.getElementById('cal-id');
+        if (btnSubmitCalText) {
+            btnSubmitCalText.textContent = (calIdInput && calIdInput.value) ? t.btnUpdateCal : t.btnAddCal;
+        }
+        const btnCancelCalText = document.getElementById('btn-cancel-cal-text');
+        if (btnCancelCalText) btnCancelCalText.textContent = t.btnCancel;
+        const lblActiveCals = document.getElementById('lbl-active-calendars');
+        if (lblActiveCals) lblActiveCals.textContent = t.activeCalendarsTitle;
+        const btnCloseModalCal = document.getElementById('btn-close-modal-cal');
+        if (btnCloseModalCal) btnCloseModalCal.textContent = t.btnClose;
+
+        // Modal Planificación
+        const planningIdInput = document.getElementById('planning-id');
+        const modalPlanningTitle = document.getElementById('modalPlanningTitleText');
+        if (modalPlanningTitle) {
+            modalPlanningTitle.textContent = (planningIdInput && planningIdInput.value) ? t.editPlanningTitle : t.newPlanningTitle;
+        }
+        const lblPlanningTitle = document.getElementById('lbl-planning-title');
+        if (lblPlanningTitle) lblPlanningTitle.textContent = t.planningTitleLabel;
+        const inputPlanningTitle = document.getElementById('planning-title');
+        if (inputPlanningTitle) inputPlanningTitle.placeholder = t.planningTitlePlaceholder;
+        const lblPlanningColor = document.getElementById('lbl-planning-color');
+        if (lblPlanningColor) lblPlanningColor.textContent = t.planningColorLabel;
+        const inputPlanningColor = document.getElementById('planning-color');
+        if (inputPlanningColor) inputPlanningColor.title = t.planningColorTitle;
+        const lblQuickPalette = document.getElementById('lbl-quick-palette');
+        if (lblQuickPalette) lblQuickPalette.textContent = t.quickPaletteLabel;
+        const btnCancelPlanning = document.getElementById('btn-cancel-planning');
+        if (btnCancelPlanning) btnCancelPlanning.textContent = t.btnCancel;
+        const btnSubmitPlanningText = document.getElementById('btn-submit-planning-text');
+        if (btnSubmitPlanningText) {
+            btnSubmitPlanningText.textContent = (planningIdInput && planningIdInput.value) ? t.updatePlanningEvent : t.savePlanningEvent;
+        }
+    }
+
+    function setLanguage(newLang) {
+        if (newLang !== 'es' && newLang !== 'en') return;
+        currentLang = newLang;
+        try {
+            localStorage.setItem('agenda_language', currentLang);
+        } catch (e) {
+            console.warn('[Agenda] Could not save language preference:', e);
+        }
+
+        // Actualizar apariencia de los botones del selector
+        const btnEs = document.getElementById('btn-lang-es');
+        const btnEn = document.getElementById('btn-lang-en');
+        if (btnEs && btnEn) {
+            if (currentLang === 'es') {
+                btnEs.classList.add('active');
+                btnEn.classList.remove('active');
+            } else {
+                btnEn.classList.add('active');
+                btnEs.classList.remove('active');
+            }
+        }
+
+        // Aplicar textos estáticos
+        applyLanguageToStaticElements();
+
+        // Actualizar FullCalendar
+        if (miniCalendar) {
+            miniCalendar.setOption('locale', currentLang);
+        }
+
+        // Re-renderizar componentes dinámicos
+        renderAnnualCalendar();
+        renderPlanningEvents();
+        renderCalendarList(currentCalendarsList);
+        if (currentSunday) {
+            updateWeekView(currentSunday);
+        }
+        updateSyncStatusBadge();
+    }
+
+    // Configurar listeners para selector de idioma
+    const btnLangEs = document.getElementById('btn-lang-es');
+    const btnLangEn = document.getElementById('btn-lang-en');
+    if (btnLangEs) {
+        btnLangEs.addEventListener('click', () => setLanguage('es'));
+    }
+    if (btnLangEn) {
+        btnLangEn.addEventListener('click', () => setLanguage('en'));
+    }
+
     // Carga inicial
-    updateWeekView(new Date());
+    setLanguage(currentLang);
+    updateWeekView(getServerNow());
     loadCalendarList();
     loadPlanningEvents();
     loadPlanningMarks();
@@ -1182,12 +1569,12 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 
     // Detección de cambio de día a medianoche para actualizar el resaltado de hoy
-    let lastCheckedDay = new Date().getDate();
+    let lastCheckedDay = getServerNow().getDate();
     setInterval(() => {
-        const currentDay = new Date().getDate();
+        const currentDay = getServerNow().getDate();
         if (currentDay !== lastCheckedDay) {
             lastCheckedDay = currentDay;
-            console.log('[Agenda] Cambio de día detectado. Refrescando interfaz...');
+            console.log('[Agenda] Cambio de día detectado según el servidor. Refrescando interfaz...');
             location.reload();
         }
     }, 30000);

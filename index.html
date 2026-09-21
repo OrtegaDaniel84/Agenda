@@ -31,13 +31,18 @@
                 </span>
             </div>
             <div class="d-flex align-items-center gap-2">
+                <!-- Selector de Idioma (ES / EN) -->
+                <div class="btn-group btn-group-sm shadow-sm" role="group" aria-label="Idioma / Language" id="lang-selector">
+                    <button type="button" class="btn btn-outline-primary fw-bold px-2 py-1 active" id="btn-lang-es" data-lang="es" title="Español">ES</button>
+                    <button type="button" class="btn btn-outline-primary fw-bold px-2 py-1" id="btn-lang-en" data-lang="en" title="English">EN</button>
+                </div>
                 <button id="btn-refresh" class="btn btn-outline-primary btn-sm px-3 py-2 fw-semibold d-inline-flex align-items-center gap-2 shadow-sm" type="button" title="Forzar consulta a los calendarios y guardar en la base de datos">
                     <i class="bi bi-arrow-clockwise" id="refresh-icon"></i>
                     <span id="refresh-text">Actualizar</span>
                 </button>
                 <button id="btn-settings" class="btn btn-primary btn-sm px-3 py-2 fw-semibold d-inline-flex align-items-center gap-2 shadow-sm" type="button" data-bs-toggle="modal" data-bs-target="#modal-calendars">
                     <i class="bi bi-gear-fill"></i>
-                    <span>Configurar Calendarios</span>
+                    <span id="settings-text">Configurar Calendarios</span>
                 </button>
             </div>
         </div>
@@ -51,7 +56,7 @@
                 <div id="annual-calendar-card" class="card shadow-sm border-0 h-100 flex-grow-1">
                     <div class="card-header bg-white border-bottom-0 pt-2 pb-1 px-3 d-flex align-items-center justify-content-between">
                         <div class="d-flex align-items-center gap-1 text-truncate me-1">
-                            <span class="fw-bold text-dark small text-nowrap"><i class="bi bi-calendar-range me-1 text-primary"></i> Calendario Anual</span>
+                            <span class="fw-bold text-dark small text-nowrap"><i class="bi bi-calendar-range me-1 text-primary"></i> <span id="annual-calendar-title">Calendario Anual</span></span>
                             <span id="annual-marking-badge" class="badge bg-primary text-white d-none align-items-center gap-1 fs-7 fw-normal ms-1 text-truncate" style="max-width: 120px;" title="Modo marcar días activo">
                                 <i class="bi bi-brush-fill" style="font-size: 0.65rem;"></i>
                                 <span id="annual-marking-event-name" class="text-truncate"></span>
@@ -71,7 +76,7 @@
                 <div id="mini-calendar-card" class="day-block card shadow-sm border-0 flex-grow-1 d-flex flex-column">
                     <div class="card-header bg-white border-bottom py-2 px-3 d-flex align-items-center justify-content-between flex-shrink-0">
                         <span class="fw-bold text-dark fs-6">
-                            <i class="bi bi-calendar2-month me-1 text-primary"></i> Calendario Mensual
+                            <i class="bi bi-calendar2-month me-1 text-primary"></i> <span id="monthly-calendar-title">Calendario Mensual</span>
                         </span>
                         <button id="btn-mini-today" type="button" class="btn btn-outline-primary btn-sm py-1 px-2 fs-7 fw-semibold rounded-2" title="Volver al día y semana actual">
                             Hoy
@@ -86,12 +91,12 @@
                 <div id="events-block" class="day-block card shadow-sm border-0 flex-grow-1 d-flex flex-column">
                     <div class="card-header bg-white border-bottom py-2 px-3 d-flex justify-content-between align-items-center flex-shrink-0">
                         <span class="fw-bold text-primary fs-6 d-flex align-items-center gap-1">
-                            <i class="bi bi-calendar2-check text-primary"></i> Planificación
+                            <i class="bi bi-calendar2-check text-primary"></i> <span id="planning-block-title">Planificación</span>
                         </span>
                         <div class="d-flex align-items-center">
                             <button id="btn-add-planning-event" type="button" class="btn btn-primary btn-sm py-1 px-2.5 fs-7 fw-semibold rounded-2 d-inline-flex align-items-center gap-1" title="Crear evento de planificación" data-bs-toggle="modal" data-bs-target="#modal-add-planning-event">
                                 <i class="bi bi-plus-lg"></i>
-                                <span>Agregar</span>
+                                <span id="btn-add-planning-text">Agregar</span>
                             </button>
                         </div>
                     </div>
@@ -113,7 +118,7 @@
                 <!-- Domingo (mismo tamaño simétrico que los demás bloques de días) -->
                 <div id="sunday" class="day-block card shadow-sm border-0 flex-grow-1 d-flex flex-column">
                     <div class="card-header bg-white border-bottom py-2 px-3 d-flex justify-content-between align-items-center flex-shrink-0">
-                        <span class="fw-bold text-danger fs-6">Domingo</span>
+                        <span class="fw-bold text-danger fs-6" id="label-sunday">Domingo</span>
                         <span class="date-label badge bg-light text-dark border fs-7 fw-semibold"></span>
                     </div>
                     <div class="card-body p-2 overflow-y-auto events-list-wrapper">
@@ -127,7 +132,7 @@
                 <!-- Lunes -->
                 <div id="monday" class="day-block card shadow-sm border-0 flex-grow-1 d-flex flex-column">
                     <div class="card-header bg-white border-bottom py-2 px-3 d-flex justify-content-between align-items-center">
-                        <span class="fw-bold text-dark fs-6">Lunes</span>
+                        <span class="fw-bold text-dark fs-6" id="label-monday">Lunes</span>
                         <span class="date-label badge bg-light text-dark border fs-7 fw-semibold"></span>
                     </div>
                     <div class="card-body p-2 overflow-y-auto events-list-wrapper">
@@ -138,7 +143,7 @@
                 <!-- Martes -->
                 <div id="tuesday" class="day-block card shadow-sm border-0 flex-grow-1 d-flex flex-column">
                     <div class="card-header bg-white border-bottom py-2 px-3 d-flex justify-content-between align-items-center">
-                        <span class="fw-bold text-dark fs-6">Martes</span>
+                        <span class="fw-bold text-dark fs-6" id="label-tuesday">Martes</span>
                         <span class="date-label badge bg-light text-dark border fs-7 fw-semibold"></span>
                     </div>
                     <div class="card-body p-2 overflow-y-auto events-list-wrapper">
@@ -149,7 +154,7 @@
                 <!-- Miércoles -->
                 <div id="wednesday" class="day-block card shadow-sm border-0 flex-grow-1 d-flex flex-column">
                     <div class="card-header bg-white border-bottom py-2 px-3 d-flex justify-content-between align-items-center">
-                        <span class="fw-bold text-dark fs-6">Miércoles</span>
+                        <span class="fw-bold text-dark fs-6" id="label-wednesday">Miércoles</span>
                         <span class="date-label badge bg-light text-dark border fs-7 fw-semibold"></span>
                     </div>
                     <div class="card-body p-2 overflow-y-auto events-list-wrapper">
@@ -163,7 +168,7 @@
                 <!-- Jueves -->
                 <div id="thursday" class="day-block card shadow-sm border-0 flex-grow-1 d-flex flex-column">
                     <div class="card-header bg-white border-bottom py-2 px-3 d-flex justify-content-between align-items-center">
-                        <span class="fw-bold text-dark fs-6">Jueves</span>
+                        <span class="fw-bold text-dark fs-6" id="label-thursday">Jueves</span>
                         <span class="date-label badge bg-light text-dark border fs-7 fw-semibold"></span>
                     </div>
                     <div class="card-body p-2 overflow-y-auto events-list-wrapper">
@@ -174,7 +179,7 @@
                 <!-- Viernes -->
                 <div id="friday" class="day-block card shadow-sm border-0 flex-grow-1 d-flex flex-column">
                     <div class="card-header bg-white border-bottom py-2 px-3 d-flex justify-content-between align-items-center">
-                        <span class="fw-bold text-dark fs-6">Viernes</span>
+                        <span class="fw-bold text-dark fs-6" id="label-friday">Viernes</span>
                         <span class="date-label badge bg-light text-dark border fs-7 fw-semibold"></span>
                     </div>
                     <div class="card-body p-2 overflow-y-auto events-list-wrapper">
@@ -185,7 +190,7 @@
                 <!-- Sábado -->
                 <div id="saturday" class="day-block card shadow-sm border-0 flex-grow-1 d-flex flex-column">
                     <div class="card-header bg-white border-bottom py-2 px-3 d-flex justify-content-between align-items-center">
-                        <span class="fw-bold text-secondary fs-6">Sábado</span>
+                        <span class="fw-bold text-secondary fs-6" id="label-saturday">Sábado</span>
                         <span class="date-label badge bg-light text-dark border fs-7 fw-semibold"></span>
                     </div>
                     <div class="card-body p-2 overflow-y-auto events-list-wrapper">
@@ -203,7 +208,7 @@
                 <div class="modal-header border-bottom py-3 px-4">
                     <h5 class="modal-title fw-bold text-dark d-flex align-items-center gap-2" id="modalLabel">
                         <i class="bi bi-calendar-plus text-primary"></i>
-                        Fuentes de Calendario
+                        <span id="modal-calendars-title">Fuentes de Calendario</span>
                     </h5>
                     <button type="button" class="btn-close" id="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
                 </div>
@@ -211,16 +216,16 @@
                     <form id="form-calendar" class="d-flex flex-column gap-3 mb-4">
                         <input type="hidden" id="cal-id" value="" />
                         <div>
-                            <label for="cal-title" class="form-label small fw-semibold text-secondary mb-1">Título del calendario</label>
+                            <label for="cal-title" class="form-label small fw-semibold text-secondary mb-1" id="lbl-cal-title">Título del calendario</label>
                             <input type="text" id="cal-title" class="form-control" placeholder="Ej: Trabajo, Personal, Clases" required />
                         </div>
                         <div class="d-flex align-items-center gap-3">
                             <div>
-                                <label for="cal-color" class="form-label small fw-semibold text-secondary mb-1">Color</label>
+                                <label for="cal-color" class="form-label small fw-semibold text-secondary mb-1" id="lbl-cal-color">Color</label>
                                 <input type="color" id="cal-color" class="form-control form-control-color border" value="#3b82f6" title="Selecciona un color">
                             </div>
                             <div class="flex-grow-1">
-                                <label for="cal-url" class="form-label small fw-semibold text-secondary mb-1">URL iCal / Webcal</label>
+                                <label for="cal-url" class="form-label small fw-semibold text-secondary mb-1" id="lbl-cal-url">URL iCal / Webcal</label>
                                 <input type="url" id="cal-url" class="form-control" placeholder="https://... o webcal://..." required />
                             </div>
                         </div>
@@ -230,16 +235,16 @@
                                 <span id="btn-submit-cal-text">Añadir Calendario</span>
                             </button>
                             <button type="button" id="btn-cancel-edit-cal" class="btn btn-outline-secondary d-none fw-semibold">
-                                Cancelar
+                                <span id="btn-cancel-cal-text">Cancelar</span>
                             </button>
                         </div>
                     </form>
 
-                    <h6 class="fw-bold text-secondary small text-uppercase mb-2">Calendarios Activos</h6>
+                    <h6 class="fw-bold text-secondary small text-uppercase mb-2" id="lbl-active-calendars">Calendarios Activos</h6>
                     <ul id="list-calendars" class="list-group mb-2 border rounded overflow-y-auto" style="max-height: 180px;"></ul>
                 </div>
                 <div class="modal-footer border-top-0 pt-0 px-4 pb-4">
-                    <button type="button" class="btn btn-secondary w-100" data-bs-dismiss="modal">Cerrar</button>
+                    <button type="button" class="btn btn-secondary w-100" data-bs-dismiss="modal" id="btn-close-modal-cal">Cerrar</button>
                 </div>
             </div>
         </div>
@@ -260,17 +265,17 @@
                     <form id="form-planning-event" class="d-flex flex-column gap-3">
                         <input type="hidden" id="planning-id" value="" />
                         <div>
-                            <label for="planning-title" class="form-label small fw-semibold text-secondary mb-1">Título del evento</label>
+                            <label for="planning-title" class="form-label small fw-semibold text-secondary mb-1" id="lbl-planning-title">Título del evento</label>
                             <input type="text" id="planning-title" class="form-control" placeholder="Ej: Revisión de sprint, Llamada con cliente..." required autofocus />
                         </div>
                         
                         <div class="d-flex align-items-center gap-3">
                             <div class="flex-shrink-0">
-                                <label for="planning-color" class="form-label small fw-semibold text-secondary mb-1">Color</label>
+                                <label for="planning-color" class="form-label small fw-semibold text-secondary mb-1" id="lbl-planning-color">Color</label>
                                 <input type="color" id="planning-color" class="form-control form-control-color border" value="#0d6efd" title="Selecciona un color para el evento">
                             </div>
                             <div class="flex-grow-1">
-                                <label class="form-label small fw-semibold text-secondary mb-1">Paleta rápida</label>
+                                <label class="form-label small fw-semibold text-secondary mb-1" id="lbl-quick-palette">Paleta rápida</label>
                                 <div class="d-flex align-items-center gap-2 pt-1">
                                     <button type="button" class="btn p-0 rounded border-0 quick-color-btn" data-color="#0d6efd" style="width: 24px; height: 24px; background-color: #0d6efd;"></button>
                                     <button type="button" class="btn p-0 rounded border-0 quick-color-btn" data-color="#198754" style="width: 24px; height: 24px; background-color: #198754;"></button>
@@ -283,7 +288,7 @@
                         </div>
 
                         <div class="pt-2 d-flex justify-content-end gap-2">
-                            <button type="button" class="btn btn-light border px-3" data-bs-dismiss="modal">Cancelar</button>
+                            <button type="button" class="btn btn-light border px-3" data-bs-dismiss="modal" id="btn-cancel-planning">Cancelar</button>
                             <button type="submit" id="btn-submit-planning" class="btn btn-primary fw-semibold px-3 d-inline-flex align-items-center gap-1">
                                 <i class="bi bi-check-lg"></i>
                                 <span id="btn-submit-planning-text">Guardar Evento</span>
