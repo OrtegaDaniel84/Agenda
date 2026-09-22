@@ -541,11 +541,11 @@ body.marking-mode-active #annual-calendar .annual-day-cell:hover {
     z-index: 10;
 }
 
-/* Número con contraste absoluto en días marcados */
+/* Número en días marcados: estilo limpio sin negrita ni línea/sombra negra */
 .annual-day-cell.has-planning-marks .annual-day-number {
     color: #ffffff !important;
-    font-weight: 800 !important;
-    text-shadow: 0 0 2.5px rgba(0, 0, 0, 0.95), 0 1px 2px rgba(0, 0, 0, 0.9);
+    font-weight: normal !important;
+    text-shadow: none !important;
 }
 
 .annual-sunday:not(.has-planning-marks) {
