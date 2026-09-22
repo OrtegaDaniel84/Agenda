@@ -91,9 +91,11 @@ document.addEventListener('DOMContentLoaded', function() {
             updatePlanningEvent: 'Actualizar Evento',
 
             // Servidor y Base de Datos JSON
-            timezoneSectionTitle: 'Horario del Servidor',
-            jsonPersistenceInfo: 'El cálculo de la fecha y hora de los eventos se toma directamente del sistema del servidor, manteniendo los datos sincronizados sin requerir configuración manual.',
-            headerTzTooltip: (tz) => `Hora del sistema del servidor (${tz})`
+            timezoneSectionTitle: 'Zona Horaria de Eventos',
+            btnAutoTzLabel: 'Mi ubicación',
+            jsonPersistenceInfo: 'Los eventos se convierten con exactitud al horario de tu ubicación (Europe/Madrid). Al cambiar de zona horaria, los eventos remotos se recalculan al instante.',
+            tzUpdatedToast: (tz) => `Zona horaria establecida a ${tz}`,
+            headerTzTooltip: (tz) => `Hora en zona ${tz}`
         },
         en: {
             pageTitle: 'Weekly Planner',
@@ -185,9 +187,11 @@ document.addEventListener('DOMContentLoaded', function() {
             updatePlanningEvent: 'Update Event',
             
             // Server System Time & JSON persistence
-            timezoneSectionTitle: 'Server System Time',
-            jsonPersistenceInfo: 'Event dates and times are calculated directly from the server system clock, keeping data synchronized without manual setup.',
-            headerTzTooltip: (tz) => `Server system time (${tz})`
+            timezoneSectionTitle: 'Event Timezone',
+            btnAutoTzLabel: 'My location',
+            jsonPersistenceInfo: 'Events are accurately converted to your location timezone (Europe/Madrid). When changing timezone, remote events are instantly recalculated.',
+            tzUpdatedToast: (tz) => `Timezone updated to ${tz}`,
+            headerTzTooltip: (tz) => `Time in zone ${tz}`
         }
     };
 
@@ -651,15 +655,25 @@ document.addEventListener('DOMContentLoaded', function() {
                 }
                 const headerTzLabel = document.getElementById('header-tz-label');
                 if (headerTzLabel) {
-                    headerTzLabel.textContent = data.serverTimeString ? `${data.serverTimeString} (${serverTimeZone || 'Servidor'})` : (serverTimeZone || 'Servidor');
+                    headerTzLabel.textContent = data.serverTimeString ? `${data.serverTimeString} (${serverTimeZone || 'Europe/Madrid'})` : (serverTimeZone || 'Europe/Madrid');
                 }
                 const activeTzPill = document.getElementById('active-tz-pill');
                 if (activeTzPill) {
-                    activeTzPill.textContent = data.serverTimeString ? `${data.serverTimeString} (${serverTimeZone || 'Servidor'})` : (serverTimeZone || 'Servidor');
+                    activeTzPill.textContent = data.serverTimeString ? `${data.serverTimeString} (${serverTimeZone || 'Europe/Madrid'})` : (serverTimeZone || 'Europe/Madrid');
+                }
+                const selectTz = document.getElementById('select-timezone');
+                if (selectTz && serverTimeZone && document.activeElement !== selectTz) {
+                    if (!Array.from(selectTz.options).some(opt => opt.value === serverTimeZone)) {
+                        const customOpt = document.createElement('option');
+                        customOpt.value = serverTimeZone;
+                        customOpt.textContent = serverTimeZone;
+                        selectTz.appendChild(customOpt);
+                    }
+                    selectTz.value = serverTimeZone;
                 }
                 const tzBadge = document.getElementById('timezone-info-badge');
                 if (tzBadge && I18N[currentLang]?.headerTzTooltip) {
-                    tzBadge.title = I18N[currentLang].headerTzTooltip(serverTimeZone || 'UTC');
+                    tzBadge.title = I18N[currentLang].headerTzTooltip(serverTimeZone || 'Europe/Madrid');
                 }
 
                 // Actualizar icono y texto de estado
@@ -1360,6 +1374,67 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
+    // Configuración y cambio dinámico de Zona Horaria
+    const selectTzInput = document.getElementById('select-timezone');
+    if (selectTzInput) {
+        selectTzInput.addEventListener('change', async (e) => {
+            const newTz = e.target.value;
+            if (!newTz) return;
+            try {
+                showToastNotification(currentLang === 'es' ? 'Recalculando eventos con nueva zona horaria...' : 'Recalculating events with new timezone...');
+                const response = await fetch('/api/settings', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ timeZone: newTz, forceSync: true })
+                });
+                if (response.ok) {
+                    const data = await response.json();
+                    serverTimeZone = data.timeZone;
+                    const msg = I18N[currentLang]?.tzUpdatedToast ? I18N[currentLang].tzUpdatedToast(newTz) : `Zona horaria: ${newTz}`;
+                    showToastNotification(msg);
+                    await checkSyncStatus(true);
+                    await fetchRealEvents();
+                }
+            } catch (err) {
+                console.error('Error al actualizar zona horaria:', err);
+            }
+        });
+    }
+
+    const btnAutoTz = document.getElementById('btn-auto-tz');
+    if (btnAutoTz) {
+        btnAutoTz.addEventListener('click', async () => {
+            try {
+                const detectedTz = Intl.DateTimeFormat().resolvedOptions().timeZone || 'Europe/Madrid';
+                if (selectTzInput) {
+                    if (!Array.from(selectTzInput.options).some(opt => opt.value === detectedTz)) {
+                        const customOpt = document.createElement('option');
+                        customOpt.value = detectedTz;
+                        customOpt.textContent = detectedTz;
+                        selectTzInput.appendChild(customOpt);
+                    }
+                    selectTzInput.value = detectedTz;
+                }
+                showToastNotification(currentLang === 'es' ? `Ubicación detectada: ${detectedTz}. Aplicando...` : `Detected location: ${detectedTz}. Applying...`);
+                const response = await fetch('/api/settings', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ timeZone: detectedTz, forceSync: true })
+                });
+                if (response.ok) {
+                    const data = await response.json();
+                    serverTimeZone = data.timeZone;
+                    const msg = I18N[currentLang]?.tzUpdatedToast ? I18N[currentLang].tzUpdatedToast(detectedTz) : `Zona horaria: ${detectedTz}`;
+                    showToastNotification(msg);
+                    await checkSyncStatus(true);
+                    await fetchRealEvents();
+                }
+            } catch (err) {
+                console.error('Error al autodetectar zona horaria:', err);
+            }
+        });
+    }
+
     // 6. Sincronización milimétrica del tamaño de todos los bloques (Lunes a Sábado, Mes, Planificación y Domingo)
     function syncDayBlockHeights() {
         const monday = document.getElementById('monday');
@@ -1514,6 +1589,8 @@ document.addEventListener('DOMContentLoaded', function() {
         // Sección Horario del Servidor y Persistencia JSON
         const textTimezoneTitle = document.getElementById('text-timezone-title');
         if (textTimezoneTitle) textTimezoneTitle.textContent = t.timezoneSectionTitle;
+        const btnAutoTzLabel = document.getElementById('btn-auto-tz-label');
+        if (btnAutoTzLabel && t.btnAutoTzLabel) btnAutoTzLabel.textContent = t.btnAutoTzLabel;
         const textJsonInfo = document.getElementById('text-json-persistence-info');
         if (textJsonInfo) textJsonInfo.innerHTML = t.jsonPersistenceInfo;
         const tzBadge = document.getElementById('timezone-info-badge');

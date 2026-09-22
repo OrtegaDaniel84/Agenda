@@ -25,6 +25,7 @@ const EVENTS_FILE = path.join(DATA_DIR, 'events.json');
 const PLANNING_EVENTS_FILE = path.join(DATA_DIR, 'planning_events.json');
 const PLANNING_MARKS_FILE = path.join(DATA_DIR, 'planning_marks.json');
 const SYNC_META_FILE = path.join(DATA_DIR, 'sync_meta.json');
+const SETTINGS_FILE = path.join(DATA_DIR, 'settings.json');
 
 function isValidTimeZone(tz) {
   if (!tz || typeof tz !== 'string') return false;
@@ -36,15 +37,41 @@ function isValidTimeZone(tz) {
   }
 }
 
-// Obtener la zona horaria del sistema directamente desde el entorno o sistema operativo del servidor
+function loadSettings() {
+  try {
+    if (fs.existsSync(SETTINGS_FILE)) {
+      const data = fs.readFileSync(SETTINGS_FILE, 'utf-8');
+      return JSON.parse(data);
+    }
+  } catch (err) {
+    console.error('[DB] Error leyendo settings.json:', err.message);
+  }
+  return {};
+}
+
+function saveSettings(settings) {
+  try {
+    fs.writeFileSync(SETTINGS_FILE, JSON.stringify(settings, null, 2), 'utf-8');
+    return true;
+  } catch (err) {
+    console.error('[DB] Error guardando settings.json:', err.message);
+    return false;
+  }
+}
+
+// Obtener la zona horaria activa (prioriza configuración guardada, entorno, o Europe/Madrid por defecto)
 function getServerTimeZone() {
+  const settings = loadSettings();
+  if (settings.timeZone && isValidTimeZone(settings.timeZone)) {
+    return settings.timeZone.trim();
+  }
   if (process.env.TZ && isValidTimeZone(process.env.TZ)) {
     return process.env.TZ.trim();
   }
   if (process.env.TIMEZONE && isValidTimeZone(process.env.TIMEZONE)) {
     return process.env.TIMEZONE.trim();
   }
-  return Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
+  return 'Europe/Madrid';
 }
 
 function loadCalendars() {
@@ -175,30 +202,39 @@ let nextPlanningId = planningEvents.reduce((max, e) => Math.max(max, Number(e.id
 app.use(cors());
 app.use(express.json());
 
-// Formatear fecha y hora tomado directamente del sistema del servidor
-function formatDateTime(date) {
+// Formatear fecha y hora convirtiendo a la zona horaria del usuario/servidor (ej: Europe/Madrid)
+function formatDateTime(date, targetTz = getServerTimeZone()) {
   try {
     const d = new Date(date);
     if (isNaN(d.getTime())) return null;
 
-    const year = d.getFullYear();
-    const month = String(d.getMonth() + 1).padStart(2, '0');
-    const day = String(d.getDate()).padStart(2, '0');
-    const hour = String(d.getHours()).padStart(2, '0');
-    const minute = String(d.getMinutes()).padStart(2, '0');
+    const formatter = new Intl.DateTimeFormat('en-CA', {
+      timeZone: targetTz,
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false
+    });
+    const parts = formatter.formatToParts(d);
+    const map = {};
+    for (const p of parts) {
+      map[p.type] = p.value;
+    }
 
     return {
-      date: `${year}-${month}-${day}`,
-      time: `${hour}:${minute}`
+      date: `${map.year}-${map.month}-${map.day}`,
+      time: `${map.hour}:${map.minute}`
     };
   } catch (err) {
-    console.warn('[Format] Error al formatear fecha desde el sistema:', err.message);
+    console.warn('[Format] Error al formatear fecha con zona horaria:', err.message);
     return null;
   }
 }
 
-// Descargar y procesar feed iCal remoto con gestión de recurrencias
-async function fetchCalendar(cal, startDateStr, endDateStr) {
+// Descargar y procesar feed iCal remoto con gestión de recurrencias y zona horaria
+async function fetchCalendar(cal, startDateStr, endDateStr, targetTz = getServerTimeZone()) {
   try {
     let feedUrl = cal.url ? cal.url.trim() : '';
     if (!feedUrl) return [];
@@ -259,7 +295,7 @@ async function fetchCalendar(cal, startDateStr, endDateStr) {
           // Si es evento de todo el día recurrente
           if (item.datetype === 'date' || item.start?.dateOnly === true) {
             const d = new Date(occDate);
-            const dateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+            const dateStr = `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}-${String(d.getUTCDate()).padStart(2, '0')}`;
             if (dateStr >= startDateStr && dateStr <= endDateStr) {
               formattedEvents.push({
                 calendarId: cal.id,
@@ -272,7 +308,7 @@ async function fetchCalendar(cal, startDateStr, endDateStr) {
             continue;
           }
 
-          const formatted = formatDateTime(occDate);
+          const formatted = formatDateTime(occDate, targetTz);
           if (formatted && formatted.date >= startDateStr && formatted.date <= endDateStr) {
             formattedEvents.push({
               calendarId: cal.id,
@@ -288,7 +324,7 @@ async function fetchCalendar(cal, startDateStr, endDateStr) {
         // Si es de día completo (VALUE=DATE o dateOnly)
         if (item.datetype === 'date' || item.start?.dateOnly === true) {
           const d = new Date(item.start);
-          const dateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+          const dateStr = `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}-${String(d.getUTCDate()).padStart(2, '0')}`;
           if (dateStr >= startDateStr && dateStr <= endDateStr) {
             formattedEvents.push({
               calendarId: cal.id,
@@ -299,8 +335,8 @@ async function fetchCalendar(cal, startDateStr, endDateStr) {
             });
           }
         } else {
-          // Evento con hora: tomado directamente del sistema del servidor
-          const formatted = formatDateTime(item.start);
+          // Evento con hora: convertido a la zona horaria destino (ej: Europe/Madrid)
+          const formatted = formatDateTime(item.start, targetTz);
           if (formatted && formatted.date >= startDateStr && formatted.date <= endDateStr) {
             formattedEvents.push({
               calendarId: cal.id,
@@ -371,7 +407,7 @@ async function syncCalendarsToDatabase(forced = false) {
     }
 
     const { startDateStr, endDateStr } = getSyncDateRange();
-    const fetchPromises = calendars.map(cal => fetchCalendar(cal, startDateStr, endDateStr));
+    const fetchPromises = calendars.map(cal => fetchCalendar(cal, startDateStr, endDateStr, serverTz));
     const results = await Promise.allSettled(fetchPromises);
 
     const freshEvents = [];
@@ -708,15 +744,51 @@ app.post('/api/planning-marks/toggle', (req, res) => {
   });
 });
 
+function getFormattedTimeInZone(date, timeZone) {
+  try {
+    const formatter = new Intl.DateTimeFormat('en-GB', {
+      timeZone,
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false
+    });
+    return formatter.format(date);
+  } catch {
+    return `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
+  }
+}
+
 // Consulta de configuración y estado del sistema del servidor
 app.get('/api/settings', (req, res) => {
   const serverTz = getServerTimeZone();
+  const settings = loadSettings();
   const now = new Date();
   res.json({
     timeZone: serverTz,
     systemTimeZone: serverTz,
-    currentTime: `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`
+    isCustomConfigured: Boolean(settings.timeZone),
+    currentTime: getFormattedTimeInZone(now, serverTz)
   });
+});
+
+// Guardar configuración de zona horaria y sincronizar de inmediato
+app.post('/api/settings', async (req, res) => {
+  const { timeZone, forceSync } = req.body || {};
+  if (timeZone && isValidTimeZone(timeZone)) {
+    const cleanTz = timeZone.trim();
+    saveSettings({ timeZone: cleanTz, updatedAt: new Date().toISOString() });
+    console.log(`[Settings] Zona horaria configurada a: ${cleanTz}`);
+    if (forceSync !== false) {
+      await syncCalendarsToDatabase(true);
+    }
+    const now = new Date();
+    return res.json({
+      status: 'success',
+      timeZone: cleanTz,
+      currentTime: getFormattedTimeInZone(now, cleanTz)
+    });
+  }
+  res.status(400).json({ error: 'Zona horaria no válida' });
 });
 
 // Consulta de estado de sincronización y versión de datos
@@ -733,7 +805,7 @@ app.get('/api/sync-status', (req, res) => {
     serverTimeZone: serverTz,
     activeTimeZone: serverTz,
     serverTime: now.toISOString(),
-    serverTimeString: `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`
+    serverTimeString: getFormattedTimeInZone(now, serverTz)
   });
 });
 
