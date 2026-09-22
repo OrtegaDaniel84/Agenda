@@ -5,6 +5,9 @@ import fs from 'fs';
 import { fileURLToPath } from 'url';
 import ical from 'node-ical';
 import crypto from 'crypto';
+import rrulePkg from 'rrule';
+
+const RRule = rrulePkg.RRule || rrulePkg.default?.RRule || rrulePkg;
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -279,7 +282,22 @@ async function fetchCalendar(cal, startDateStr, endDateStr, targetTz = getServer
       if (item.rrule) {
         let occurrences = [];
         try {
-          occurrences = item.rrule.between(rangeStart, rangeEnd, true);
+          let rule = item.rrule;
+          // Corregir desfase de UNTIL entre DTSTART local y UNTIL en UTC (bug conocido de node-ical / rrule)
+          if (item.rrule.origOptions && item.rrule.origOptions.until) {
+            const tz = (item.start && item.start.tz) || targetTz || 'Europe/Madrid';
+            let safeUntil = item.rrule.origOptions.until;
+            try {
+              const localStr = new Date(item.rrule.origOptions.until).toLocaleString('sv-SE', { timeZone: tz }).replace(' ', 'T');
+              safeUntil = new Date(localStr + 'Z');
+            } catch {
+              safeUntil = item.rrule.origOptions.until;
+            }
+            const bufferedUntil = new Date(safeUntil.getTime() + 5 * 60 * 1000);
+            const opts = { ...item.rrule.origOptions, until: bufferedUntil };
+            rule = new RRule(opts);
+          }
+          occurrences = rule.between(rangeStart, rangeEnd, true);
         } catch (rerr) {
           console.warn(`[Sync] Advertencia de recurrencia en "${summary}":`, rerr.message);
         }
@@ -292,29 +310,39 @@ async function fetchCalendar(cal, startDateStr, endDateStr, targetTz = getServer
             continue;
           }
 
+          let curSummary = summary;
+          let curDate = occDate;
+          if (item.recurrences) {
+            const override = item.recurrences[occIso] || item.recurrences[occDate.toISOString()];
+            if (override) {
+              if (override.summary) curSummary = override.summary;
+              if (override.start) curDate = override.start;
+            }
+          }
+
           // Si es evento de todo el día recurrente
           if (item.datetype === 'date' || item.start?.dateOnly === true) {
-            const d = new Date(occDate);
+            const d = new Date(curDate);
             const dateStr = `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}-${String(d.getUTCDate()).padStart(2, '0')}`;
             if (dateStr >= startDateStr && dateStr <= endDateStr) {
               formattedEvents.push({
                 calendarId: cal.id,
                 date: dateStr,
                 time: '00:00',
-                title: summary,
+                title: curSummary,
                 color: cal.color || '#3b82f6'
               });
             }
             continue;
           }
 
-          const formatted = formatDateTime(occDate, targetTz);
+          const formatted = formatDateTime(curDate, targetTz);
           if (formatted && formatted.date >= startDateStr && formatted.date <= endDateStr) {
             formattedEvents.push({
               calendarId: cal.id,
               date: formatted.date,
               time: formatted.time,
-              title: summary,
+              title: curSummary,
               color: cal.color || '#3b82f6'
             });
           }
