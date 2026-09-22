@@ -241,7 +241,27 @@
                     </form>
 
                     <h6 class="fw-bold text-secondary small text-uppercase mb-2" id="lbl-active-calendars">Calendarios Activos</h6>
-                    <ul id="list-calendars" class="list-group mb-2 border rounded overflow-y-auto" style="max-height: 180px;"></ul>
+                    <ul id="list-calendars" class="list-group mb-3 border rounded overflow-y-auto" style="max-height: 160px;"></ul>
+
+                    <hr class="my-3 text-muted opacity-25">
+
+                    <!-- Información del Sistema del Servidor -->
+                    <div class="mb-2">
+                        <div class="d-flex align-items-center justify-content-between mb-2">
+                            <h6 class="fw-bold text-secondary small text-uppercase mb-0 d-flex align-items-center gap-1.5" id="lbl-timezone-section">
+                                <i class="bi bi-hdd-network text-primary"></i>
+                                <span id="text-timezone-title">Horario del Servidor</span>
+                            </h6>
+                            <span id="active-tz-pill" class="badge bg-primary-subtle text-primary border border-primary-subtle font-monospace px-2 py-1">Servidor</span>
+                        </div>
+
+                        <div class="alert alert-light border small text-secondary py-2 px-2.5 mb-0 d-flex align-items-start gap-2">
+                            <i class="bi bi-info-circle text-primary fs-6 mt-0.5 flex-shrink-0"></i>
+                            <span id="text-json-persistence-info">
+                                El cálculo de la fecha y hora de los eventos se toma directamente del sistema del servidor, manteniendo los datos sincronizados sin requerir configuración manual.
+                            </span>
+                        </div>
+                    </div>
                 </div>
                 <div class="modal-footer border-top-0 pt-0 px-4 pb-4">
                     <button type="button" class="btn btn-secondary w-100" data-bs-dismiss="modal" id="btn-close-modal-cal">Cerrar</button>

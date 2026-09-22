@@ -26,7 +26,27 @@ const PLANNING_EVENTS_FILE = path.join(DATA_DIR, 'planning_events.json');
 const PLANNING_MARKS_FILE = path.join(DATA_DIR, 'planning_marks.json');
 const SYNC_META_FILE = path.join(DATA_DIR, 'sync_meta.json');
 
-// Operaciones atómicas y seguras con la base de datos
+function isValidTimeZone(tz) {
+  if (!tz || typeof tz !== 'string') return false;
+  try {
+    Intl.DateTimeFormat(undefined, { timeZone: tz.trim() });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+// Obtener la zona horaria del sistema directamente desde el entorno o sistema operativo del servidor
+function getServerTimeZone() {
+  if (process.env.TZ && isValidTimeZone(process.env.TZ)) {
+    return process.env.TZ.trim();
+  }
+  if (process.env.TIMEZONE && isValidTimeZone(process.env.TIMEZONE)) {
+    return process.env.TIMEZONE.trim();
+  }
+  return Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
+}
+
 function loadCalendars() {
   try {
     if (fs.existsSync(CALENDARS_FILE)) {
@@ -155,34 +175,24 @@ let nextPlanningId = planningEvents.reduce((max, e) => Math.max(max, Number(e.id
 app.use(cors());
 app.use(express.json());
 
-// Obtener la zona horaria del servidor donde corre la aplicación automáticamente
-function getServerTimeZone() {
-  return Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
-}
-
-// Formatear fecha y hora en formato español de 24h usando la zona horaria del servidor
-function formatDateTime(date, timeZone = getServerTimeZone()) {
+// Formatear fecha y hora tomado directamente del sistema del servidor
+function formatDateTime(date) {
   try {
     const d = new Date(date);
     if (isNaN(d.getTime())) return null;
 
-    const tz = timeZone || getServerTimeZone();
-    const formatter = new Intl.DateTimeFormat('es-ES', {
-      timeZone: tz,
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-      hour: '2-digit',
-      minute: '2-digit',
-      hour12: false,
-    });
-    const parts = formatter.formatToParts(d);
-    const getPart = (type) => parts.find(p => p.type === type)?.value;
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    const hour = String(d.getHours()).padStart(2, '0');
+    const minute = String(d.getMinutes()).padStart(2, '0');
+
     return {
-      date: `${getPart('year')}-${getPart('month')}-${getPart('day')}`,
-      time: `${getPart('hour')}:${getPart('minute')}`
+      date: `${year}-${month}-${day}`,
+      time: `${hour}:${minute}`
     };
-  } catch {
+  } catch (err) {
+    console.warn('[Format] Error al formatear fecha desde el sistema:', err.message);
     return null;
   }
 }
@@ -246,13 +256,23 @@ async function fetchCalendar(cal, startDateStr, endDateStr) {
             continue;
           }
 
-          const targetDate = new Date(occDate);
-          if (item.start) {
-            const orig = new Date(item.start);
-            targetDate.setUTCHours(orig.getUTCHours(), orig.getUTCMinutes(), orig.getUTCSeconds());
+          // Si es evento de todo el día recurrente
+          if (item.datetype === 'date' || item.start?.dateOnly === true) {
+            const d = new Date(occDate);
+            const dateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+            if (dateStr >= startDateStr && dateStr <= endDateStr) {
+              formattedEvents.push({
+                calendarId: cal.id,
+                date: dateStr,
+                time: '00:00',
+                title: summary,
+                color: cal.color || '#3b82f6'
+              });
+            }
+            continue;
           }
 
-          const formatted = formatDateTime(targetDate);
+          const formatted = formatDateTime(occDate);
           if (formatted && formatted.date >= startDateStr && formatted.date <= endDateStr) {
             formattedEvents.push({
               calendarId: cal.id,
@@ -265,15 +285,31 @@ async function fetchCalendar(cal, startDateStr, endDateStr) {
         }
       } else if (item.start) {
         // 2. Evento puntual
-        const formatted = formatDateTime(item.start);
-        if (formatted && formatted.date >= startDateStr && formatted.date <= endDateStr) {
-          formattedEvents.push({
-            calendarId: cal.id,
-            date: formatted.date,
-            time: formatted.time,
-            title: summary,
-            color: cal.color || '#3b82f6'
-          });
+        // Si es de día completo (VALUE=DATE o dateOnly)
+        if (item.datetype === 'date' || item.start?.dateOnly === true) {
+          const d = new Date(item.start);
+          const dateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+          if (dateStr >= startDateStr && dateStr <= endDateStr) {
+            formattedEvents.push({
+              calendarId: cal.id,
+              date: dateStr,
+              time: '00:00',
+              title: summary,
+              color: cal.color || '#3b82f6'
+            });
+          }
+        } else {
+          // Evento con hora: tomado directamente del sistema del servidor
+          const formatted = formatDateTime(item.start);
+          if (formatted && formatted.date >= startDateStr && formatted.date <= endDateStr) {
+            formattedEvents.push({
+              calendarId: cal.id,
+              date: formatted.date,
+              time: formatted.time,
+              title: summary,
+              color: cal.color || '#3b82f6'
+            });
+          }
         }
       }
     }
@@ -309,6 +345,7 @@ async function syncCalendarsToDatabase(forced = false) {
   }
 
   isSyncing = true;
+  const serverTz = getServerTimeZone();
 
   try {
     if (calendars.length === 0) {
@@ -325,11 +362,12 @@ async function syncCalendarsToDatabase(forced = false) {
         eventsCount: 0,
         dataVersion,
         dataHash: '',
+        timeZone: serverTz,
         lastChangedAt: hadEvents ? new Date().toISOString() : (syncMeta.lastChangedAt || new Date().toISOString())
       };
       saveSyncMeta(syncMeta);
       isSyncing = false;
-      return { status: 'success', lastSync: syncMeta.lastSync, eventsCount: 0, dataVersion, hasChanged: hadEvents };
+      return { status: 'success', lastSync: syncMeta.lastSync, eventsCount: 0, dataVersion, hasChanged: hadEvents, timeZone: serverTz };
     }
 
     const { startDateStr, endDateStr } = getSyncDateRange();
@@ -357,10 +395,11 @@ async function syncCalendarsToDatabase(forced = false) {
       return a.time.localeCompare(b.time);
     });
 
-    // Comparar hashes para detectar si hubo cambios
+    // Comparar hashes o si la zona horaria cambió para actualizar la base de datos
     const previousHash = syncMeta.dataHash || computeEventsHash(cachedEvents);
     const newHash = computeEventsHash(freshEvents);
-    const hasDataChanged = previousHash !== newHash;
+    const tzChanged = Boolean(syncMeta.timeZone && syncMeta.timeZone !== serverTz);
+    const hasDataChanged = previousHash !== newHash || tzChanged || forced;
 
     let dataVersion = syncMeta.dataVersion || 1;
     let lastChangedAt = syncMeta.lastChangedAt || new Date().toISOString();
@@ -368,10 +407,11 @@ async function syncCalendarsToDatabase(forced = false) {
     if (hasDataChanged) {
       dataVersion += 1;
       lastChangedAt = new Date().toISOString();
-      console.log(`[Sync] Cambios detectados en calendarios. Nueva versión de datos: v${dataVersion} (${freshEvents.length} eventos).`);
+      console.log(`[Sync] Base de datos actualizada con horario del servidor (${serverTz}). Versión: v${dataVersion} (${freshEvents.length} eventos).`);
     }
 
     cachedEvents = freshEvents;
+    // Guardar automáticamente la nueva versión en events.json
     saveEventsToDb(cachedEvents);
 
     syncMeta = {
@@ -380,6 +420,7 @@ async function syncCalendarsToDatabase(forced = false) {
       eventsCount: cachedEvents.length,
       dataHash: newHash,
       dataVersion,
+      timeZone: serverTz,
       lastChangedAt
     };
     saveSyncMeta(syncMeta);
@@ -389,6 +430,7 @@ async function syncCalendarsToDatabase(forced = false) {
       lastSync: syncMeta.lastSync,
       eventsCount: cachedEvents.length,
       dataVersion: syncMeta.dataVersion,
+      timeZone: serverTz,
       hasChanged: hasDataChanged
     };
   } catch (error) {
@@ -404,6 +446,7 @@ async function syncCalendarsToDatabase(forced = false) {
       lastSync: syncMeta.lastSync,
       error: error.message,
       dataVersion: syncMeta.dataVersion || 1,
+      timeZone: serverTz,
       hasChanged: false
     };
   } finally {
@@ -417,9 +460,11 @@ setInterval(() => {
   syncCalendarsToDatabase(false);
 }, SYNC_INTERVAL_MS);
 
-// Sincronización inicial al levantar el servidor (fuerza cálculo con zona horaria del servidor)
+// Sincronización inicial al levantar el servidor
 setTimeout(() => {
   if (calendars.length > 0) {
+    const serverTz = getServerTimeZone();
+    console.log(`[Agenda] Sincronización inicial con horario del servidor (${serverTz})`);
     syncCalendarsToDatabase(true);
   }
 }, 1500);
@@ -663,8 +708,21 @@ app.post('/api/planning-marks/toggle', (req, res) => {
   });
 });
 
+// Consulta de configuración y estado del sistema del servidor
+app.get('/api/settings', (req, res) => {
+  const serverTz = getServerTimeZone();
+  const now = new Date();
+  res.json({
+    timeZone: serverTz,
+    systemTimeZone: serverTz,
+    currentTime: `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`
+  });
+});
+
 // Consulta de estado de sincronización y versión de datos
 app.get('/api/sync-status', (req, res) => {
+  const serverTz = getServerTimeZone();
+  const now = new Date();
   res.json({
     lastSync: syncMeta.lastSync,
     isSyncing,
@@ -672,8 +730,10 @@ app.get('/api/sync-status', (req, res) => {
     status: syncMeta.lastStatus,
     dataVersion: syncMeta.dataVersion || 1,
     lastChangedAt: syncMeta.lastChangedAt || syncMeta.lastSync,
-    serverTimeZone: getServerTimeZone(),
-    serverTime: new Date().toISOString()
+    serverTimeZone: serverTz,
+    activeTimeZone: serverTz,
+    serverTime: now.toISOString(),
+    serverTimeString: `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`
   });
 });
 
@@ -684,6 +744,19 @@ app.post('/api/refresh', async (req, res) => {
 });
 
 // Lectura de eventos ultrarrápida desde la base de datos local
+app.get('/api/events', (req, res) => {
+  const { start_date, end_date } = req.query || {};
+  let responseEvents = [...cachedEvents];
+  if (start_date && end_date) {
+    responseEvents = responseEvents.filter(ev => ev.date >= start_date && ev.date <= end_date);
+  }
+  responseEvents.sort((a, b) => {
+    if (a.date !== b.date) return a.date.localeCompare(b.date);
+    return a.time.localeCompare(b.time);
+  });
+  res.json(responseEvents);
+});
+
 app.post('/api/events', async (req, res) => {
   const { start_date, end_date, force_refresh } = req.body || {};
   if (!start_date || !end_date) {

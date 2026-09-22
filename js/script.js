@@ -88,7 +88,12 @@ document.addEventListener('DOMContentLoaded', function() {
             planningColorTitle: 'Selecciona un color para el evento',
             quickPaletteLabel: 'Paleta rápida',
             savePlanningEvent: 'Guardar Evento',
-            updatePlanningEvent: 'Actualizar Evento'
+            updatePlanningEvent: 'Actualizar Evento',
+
+            // Servidor y Base de Datos JSON
+            timezoneSectionTitle: 'Horario del Servidor',
+            jsonPersistenceInfo: 'El cálculo de la fecha y hora de los eventos se toma directamente del sistema del servidor, manteniendo los datos sincronizados sin requerir configuración manual.',
+            headerTzTooltip: (tz) => `Hora del sistema del servidor (${tz})`
         },
         en: {
             pageTitle: 'Weekly Planner',
@@ -117,12 +122,12 @@ document.addEventListener('DOMContentLoaded', function() {
             daysShort: ['S', 'M', 'T', 'W', 'T', 'F', 'S'],
             dateTooltip: (d, m, y) => `${m} ${d}, ${y}`,
             maxEventsPerDay: 'Maximum 4 events per day!',
-
+            
             // Columna 2: Mes
             monthlyCalendarTitle: 'Monthly Calendar',
             todayBtn: 'Today',
             todayBtnTooltip: 'Return to current day and week',
-
+            
             // Planificación
             planningTitle: 'Planning',
             addPlanningBtn: 'Add',
@@ -137,7 +142,7 @@ document.addEventListener('DOMContentLoaded', function() {
             clickToDeselect: 'Click to deselect',
             clickToSelect: 'Click to select and mark days on annual calendar',
             deselectEventTooltip: 'Deselect event',
-
+            
             // Días de la semana
             daysOfWeek: {
                 sunday: 'Sunday',
@@ -150,7 +155,7 @@ document.addEventListener('DOMContentLoaded', function() {
             },
             loadingEvents: 'Loading events...',
             reconnectingEvents: 'Reconnecting events...',
-
+            
             // Modal Calendarios
             modalCalendarsTitle: 'Calendar Sources',
             calTitleLabel: 'Calendar title',
@@ -167,7 +172,7 @@ document.addEventListener('DOMContentLoaded', function() {
             editCalendar: 'Edit calendar',
             deleteCalendar: 'Delete calendar',
             btnClose: 'Close',
-
+            
             // Modal Planificación
             newPlanningTitle: 'New Planning Event',
             editPlanningTitle: 'Edit Planning Event',
@@ -177,7 +182,12 @@ document.addEventListener('DOMContentLoaded', function() {
             planningColorTitle: 'Select a color for the event',
             quickPaletteLabel: 'Quick palette',
             savePlanningEvent: 'Save Event',
-            updatePlanningEvent: 'Update Event'
+            updatePlanningEvent: 'Update Event',
+            
+            // Server System Time & JSON persistence
+            timezoneSectionTitle: 'Server System Time',
+            jsonPersistenceInfo: 'Event dates and times are calculated directly from the server system clock, keeping data synchronized without manual setup.',
+            headerTzTooltip: (tz) => `Server system time (${tz})`
         }
     };
 
@@ -189,18 +199,20 @@ document.addEventListener('DOMContentLoaded', function() {
     let currentSunday, currentSaturday, weekDates = {};
     const daysIds = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
 
-    // Zona horaria del servidor (se sincroniza con /api/sync-status)
+    // Zona horaria y desfase del servidor (se sincroniza con /api/sync-status)
     let serverTimeZone = null;
+    let serverTimeOffset = 0;
 
-    // Obtener la fecha/hora actual alineada con la zona horaria del servidor
+    // Obtener la fecha/hora actual alineada con el horario del servidor
     function getServerNow() {
-        if (!serverTimeZone) return new Date();
+        const serverTimestamp = Date.now() + serverTimeOffset;
+        if (!serverTimeZone) return new Date(serverTimestamp);
         try {
-            const str = new Date().toLocaleString('en-US', { timeZone: serverTimeZone });
+            const str = new Date(serverTimestamp).toLocaleString('en-US', { timeZone: serverTimeZone });
             const d = new Date(str);
-            return isNaN(d.getTime()) ? new Date() : d;
+            return isNaN(d.getTime()) ? new Date(serverTimestamp) : d;
         } catch {
-            return new Date();
+            return new Date(serverTimestamp);
         }
     }
 
@@ -630,9 +642,24 @@ document.addEventListener('DOMContentLoaded', function() {
                 consecutiveSyncErrors = 0;
                 const data = await res.json();
 
-                // Sincronizar la zona horaria del servidor
+                // Sincronizar la hora y zona horaria del servidor directamente
+                if (data.serverTime) {
+                    serverTimeOffset = new Date(data.serverTime).getTime() - Date.now();
+                }
                 if (data.serverTimeZone) {
                     serverTimeZone = data.serverTimeZone;
+                }
+                const headerTzLabel = document.getElementById('header-tz-label');
+                if (headerTzLabel) {
+                    headerTzLabel.textContent = data.serverTimeString ? `${data.serverTimeString} (${serverTimeZone || 'Servidor'})` : (serverTimeZone || 'Servidor');
+                }
+                const activeTzPill = document.getElementById('active-tz-pill');
+                if (activeTzPill) {
+                    activeTzPill.textContent = data.serverTimeString ? `${data.serverTimeString} (${serverTimeZone || 'Servidor'})` : (serverTimeZone || 'Servidor');
+                }
+                const tzBadge = document.getElementById('timezone-info-badge');
+                if (tzBadge && I18N[currentLang]?.headerTzTooltip) {
+                    tzBadge.title = I18N[currentLang].headerTzTooltip(serverTimeZone || 'UTC');
                 }
 
                 // Actualizar icono y texto de estado
@@ -1483,6 +1510,43 @@ document.addEventListener('DOMContentLoaded', function() {
         if (btnSubmitPlanningText) {
             btnSubmitPlanningText.textContent = (planningIdInput && planningIdInput.value) ? t.updatePlanningEvent : t.savePlanningEvent;
         }
+
+        // Sección Horario del Servidor y Persistencia JSON
+        const textTimezoneTitle = document.getElementById('text-timezone-title');
+        if (textTimezoneTitle) textTimezoneTitle.textContent = t.timezoneSectionTitle;
+        const textJsonInfo = document.getElementById('text-json-persistence-info');
+        if (textJsonInfo) textJsonInfo.innerHTML = t.jsonPersistenceInfo;
+        const tzBadge = document.getElementById('timezone-info-badge');
+        if (tzBadge && t.headerTzTooltip) {
+            tzBadge.title = t.headerTzTooltip(serverTimeZone || 'UTC');
+        }
+    }
+
+    // Sistema de notificación toast flotante discreto
+    function showToastNotification(message) {
+        let toast = document.getElementById('agenda-floating-toast');
+        if (!toast) {
+            toast = document.createElement('div');
+            toast.id = 'agenda-floating-toast';
+            toast.className = 'position-fixed bottom-0 end-0 p-3';
+            toast.style.zIndex = '9999';
+            toast.innerHTML = `
+                <div class="toast show align-items-center text-bg-dark border-0 shadow" role="alert" aria-live="assertive" aria-atomic="true">
+                    <div class="d-flex">
+                        <div class="toast-body small fw-semibold" id="agenda-toast-body"></div>
+                        <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
+                    </div>
+                </div>
+            `;
+            document.body.appendChild(toast);
+        }
+        const body = document.getElementById('agenda-toast-body');
+        if (body) body.textContent = message;
+        toast.classList.remove('d-none');
+        clearTimeout(toast._timeout);
+        toast._timeout = setTimeout(() => {
+            toast.classList.add('d-none');
+        }, 4000);
     }
 
     function setLanguage(newLang) {
