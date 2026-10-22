@@ -22,6 +22,9 @@ document.addEventListener('DOMContentLoaded', function() {
             
             // Columna 1: Anual
             annualCalendarTitle: 'Calendario Anual',
+            annualPrevTooltip: 'Desplazar 3 meses antes',
+            annualNextTooltip: 'Desplazar 3 meses después',
+            annualResetTooltip: 'Volver a la vista actual',
             markingModeTooltip: 'Modo marcar días activo',
             markingWith: (name) => `Marcando con: ${name}`,
             months: ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'],
@@ -118,6 +121,9 @@ document.addEventListener('DOMContentLoaded', function() {
             
             // Columna 1: Anual
             annualCalendarTitle: 'Annual Calendar',
+            annualPrevTooltip: 'Shift 3 months earlier',
+            annualNextTooltip: 'Shift 3 months later',
+            annualResetTooltip: 'Return to current view',
             markingModeTooltip: 'Day marking mode active',
             markingWith: (name) => `Marking with: ${name}`,
             months: ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'],
@@ -394,27 +400,59 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 
+    // Obtiene el desplazamiento inicial para que el mes actual siempre quede en la fila superior (inicio del trimestre actual)
+    function getDefaultAnnualOffset() {
+        const now = getServerNow();
+        return Math.floor(now.getMonth() / 3) * 3;
+    }
+
+    let annualOffsetMonths = getDefaultAnnualOffset(); // Desplazamiento en meses (múltiplos de 3 para mantener fijas las columnas)
+
     function renderAnnualCalendar() {
         const container = document.getElementById('annual-calendar');
         if (!container) return;
         container.innerHTML = '';
 
-        const year = new Date().getFullYear();
+        const baseYear = getServerNow().getFullYear();
+        // Calculamos los 12 meses a mostrar basados en annualOffsetMonths
+        const firstMonthDate = new Date(baseYear, annualOffsetMonths, 1);
+        const lastMonthDate = new Date(baseYear, annualOffsetMonths + 11, 1);
+        const firstYear = firstMonthDate.getFullYear();
+        const lastYear = lastMonthDate.getFullYear();
+        const isMultiYear = firstYear !== lastYear;
+
+        const defaultOffset = getDefaultAnnualOffset();
         const yearBadge = document.getElementById('annual-year-badge');
+        const t = I18N[currentLang];
         if (yearBadge) {
-            yearBadge.innerText = year;
+            yearBadge.innerText = isMultiYear ? `${firstYear} – ${lastYear}` : `${firstYear}`;
+            if (annualOffsetMonths !== defaultOffset) {
+                yearBadge.classList.add('annual-badge-shifted');
+                yearBadge.title = t.annualResetTooltip || 'Volver a la vista actual';
+            } else {
+                yearBadge.classList.remove('annual-badge-shifted');
+                yearBadge.title = '';
+            }
         }
 
-        const t = I18N[currentLang];
         const months = t.months;
         const daysShort = t.daysShort;
 
-        months.forEach((monthName, monthIndex) => {
+        for (let i = 0; i < 12; i++) {
+            const currentMonthDate = new Date(baseYear, annualOffsetMonths + i, 1);
+            const mYear = currentMonthDate.getFullYear();
+            const mIndex = currentMonthDate.getMonth();
+            const monthName = months[mIndex];
+
             const monthDiv = document.createElement('div');
             monthDiv.className = 'annual-month';
 
-            // Título del mes
-            let html = `<div class="annual-month-title">${monthName}</div>`;
+            // Título del mes (si abarca dos años, mostramos el año para claridad)
+            let titleContent = monthName;
+            if (isMultiYear) {
+                titleContent = `${monthName} <span class="annual-month-year text-muted">${mYear}</span>`;
+            }
+            let html = `<div class="annual-month-title">${titleContent}</div>`;
             html += `<div class="annual-days-grid annual-days-header text-muted">`;
             daysShort.forEach((d, index) => {
                 let styleClass = 'annual-day-header-cell';
@@ -428,21 +466,21 @@ document.addEventListener('DOMContentLoaded', function() {
             html += `</div><div class="annual-days-grid annual-days-body">`;
 
             // Días del mes
-            const firstDay = new Date(year, monthIndex, 1).getDay();
-            const totalDays = new Date(year, monthIndex + 1, 0).getDate();
+            const firstDay = new Date(mYear, mIndex, 1).getDay();
+            const totalDays = new Date(mYear, mIndex + 1, 0).getDate();
 
             // Espacios vacíos iniciales
-            for (let i = 0; i < firstDay; i++) {
+            for (let emptyIdx = 0; emptyIdx < firstDay; emptyIdx++) {
                 html += `<span class="annual-empty-cell"></span>`;
             }
 
             // Números de los días
             const today = getServerNow();
             for (let day = 1; day <= totalDays; day++) {
-                const currentDayOfWeek = new Date(year, monthIndex, day).getDay();
-                const isToday = day === today.getDate() && monthIndex === today.getMonth() && year === today.getFullYear();
+                const currentDayOfWeek = new Date(mYear, mIndex, day).getDay();
+                const isToday = day === today.getDate() && mIndex === today.getMonth() && mYear === today.getFullYear();
                 const isSunday = currentDayOfWeek === 0;
-                const dateKey = getDateKey(year, monthIndex, day);
+                const dateKey = getDateKey(mYear, mIndex, day);
 
                 const eventIds = planningMarks[dateKey] || [];
                 const assignedEvents = eventIds.map(id => planningEventsList.find(e => e.id === id)).filter(Boolean);
@@ -465,18 +503,18 @@ document.addEventListener('DOMContentLoaded', function() {
                     styleAttr = `style="background: ${bg};"`;
                 }
 
-                let tooltipText = t.dateTooltip(day, monthName, year);
+                let tooltipText = t.dateTooltip(day, monthName, mYear);
                 if (hasMarks) {
                     tooltipText += ` - ${visibleEvents.map(e => e.title).join(', ')}`;
                 }
 
-                html += `<span class="${cellClass}" data-date="${dateKey}" data-year="${year}" data-month="${monthIndex}" data-day="${day}" title="${tooltipText}" ${styleAttr}><span class="annual-day-number">${day}</span></span>`;
+                html += `<span class="${cellClass}" data-date="${dateKey}" data-year="${mYear}" data-month="${mIndex}" data-day="${day}" title="${tooltipText}" ${styleAttr}><span class="annual-day-number">${day}</span></span>`;
             }
 
             html += `</div>`;
             monthDiv.innerHTML = html;
             container.appendChild(monthDiv);
-        });
+        }
 
         // Interacción al hacer clic en los días del calendario anual
         container.querySelectorAll('.annual-day-cell').forEach(cell => {
@@ -1500,6 +1538,14 @@ document.addEventListener('DOMContentLoaded', function() {
         if (annualTitle) annualTitle.textContent = t.annualCalendarTitle;
         const annualMarkingBadgeEl = document.getElementById('annual-marking-badge');
         if (annualMarkingBadgeEl) annualMarkingBadgeEl.title = t.markingModeTooltip;
+        const btnAnnualPrev = document.getElementById('btn-annual-prev');
+        if (btnAnnualPrev && t.annualPrevTooltip) btnAnnualPrev.title = t.annualPrevTooltip;
+        const btnAnnualNext = document.getElementById('btn-annual-next');
+        if (btnAnnualNext && t.annualNextTooltip) btnAnnualNext.title = t.annualNextTooltip;
+        const annualYearBadge = document.getElementById('annual-year-badge');
+        if (annualYearBadge && annualOffsetMonths !== getDefaultAnnualOffset() && t.annualResetTooltip) {
+            annualYearBadge.title = t.annualResetTooltip;
+        }
 
         // Columna 2: Calendario Mensual
         const monthlyTitle = document.getElementById('monthly-calendar-title');
@@ -1674,6 +1720,67 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     if (btnLangEn) {
         btnLangEn.addEventListener('click', () => setLanguage('en'));
+    }
+
+    // Navegación del Calendario Anual (desplazamiento de 3 meses por movimiento manteniendo columnas alineadas)
+    const btnAnnualPrev = document.getElementById('btn-annual-prev');
+    const btnAnnualNext = document.getElementById('btn-annual-next');
+    const annualYearBadge = document.getElementById('annual-year-badge');
+
+    if (btnAnnualPrev) {
+        btnAnnualPrev.addEventListener('click', (e) => {
+            e.stopPropagation();
+            annualOffsetMonths -= 3;
+            renderAnnualCalendar();
+        });
+    }
+
+    if (btnAnnualNext) {
+        btnAnnualNext.addEventListener('click', (e) => {
+            e.stopPropagation();
+            annualOffsetMonths += 3;
+            renderAnnualCalendar();
+        });
+    }
+
+    if (annualYearBadge) {
+        annualYearBadge.addEventListener('click', (e) => {
+            const defaultOffset = getDefaultAnnualOffset();
+            if (annualOffsetMonths !== defaultOffset) {
+                e.stopPropagation();
+                annualOffsetMonths = defaultOffset;
+                renderAnnualCalendar();
+            }
+        });
+    }
+
+    // Soporte táctil de desplazamiento (swipe) para deslizar trimestres en móvil
+    const annualContainer = document.getElementById('annual-calendar');
+    if (annualContainer) {
+        let touchStartX = 0;
+        let touchStartY = 0;
+        annualContainer.addEventListener('touchstart', (e) => {
+            if (e.touches && e.touches.length === 1) {
+                touchStartX = e.touches[0].clientX;
+                touchStartY = e.touches[0].clientY;
+            }
+        }, { passive: true });
+
+        annualContainer.addEventListener('touchend', (e) => {
+            if (e.changedTouches && e.changedTouches.length === 1) {
+                const diffX = e.changedTouches[0].clientX - touchStartX;
+                const diffY = e.changedTouches[0].clientY - touchStartY;
+                if (Math.abs(diffX) > 40 && Math.abs(diffX) > Math.abs(diffY) * 1.5) {
+                    if (diffX < 0) {
+                        annualOffsetMonths += 3;
+                        renderAnnualCalendar();
+                    } else {
+                        annualOffsetMonths -= 3;
+                        renderAnnualCalendar();
+                    }
+                }
+            }
+        }, { passive: true });
     }
 
     // Carga inicial
