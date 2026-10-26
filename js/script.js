@@ -447,11 +447,8 @@ document.addEventListener('DOMContentLoaded', function() {
             const monthDiv = document.createElement('div');
             monthDiv.className = 'annual-month';
 
-            // Título del mes (si abarca dos años, mostramos el año para claridad)
-            let titleContent = monthName;
-            if (isMultiYear) {
-                titleContent = `${monthName} <span class="annual-month-year text-muted">${mYear}</span>`;
-            }
+            // Título del mes (mostramos siempre el año para consistencia visual y tamaño uniforme)
+            const titleContent = `${monthName} <span class="annual-month-year text-muted">${mYear}</span>`;
             let html = `<div class="annual-month-title">${titleContent}</div>`;
             html += `<div class="annual-days-grid annual-days-header text-muted">`;
             daysShort.forEach((d, index) => {
@@ -1475,12 +1472,6 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // 6. Sincronización milimétrica del tamaño de todos los bloques (Lunes a Sábado, Mes, Planificación y Domingo)
     function syncDayBlockHeights() {
-        const monday = document.getElementById('monday');
-        const sunday = document.getElementById('sunday');
-        const eventsBlock = document.getElementById('events-block');
-        const miniCalendarCard = document.getElementById('mini-calendar-card');
-        if (!monday) return;
-
         if (window.innerWidth < 768) {
             document.querySelectorAll('.day-block').forEach(el => {
                 el.style.height = '220px';
@@ -1488,28 +1479,14 @@ document.addEventListener('DOMContentLoaded', function() {
                 el.style.maxHeight = '220px';
                 el.style.minHeight = '220px';
             });
-            if (miniCalendar) miniCalendar.updateSize();
-            return;
-        }
-
-        // Limpiar estilos inline en todos los bloques para que el cálculo flex actúe de manera unificada
-        document.querySelectorAll('.day-block').forEach(el => {
-            el.style.height = '';
-            el.style.flex = '';
-            el.style.maxHeight = '';
-            el.style.minHeight = '';
-        });
-
-        // En pantallas medianas y grandes, sincronizar Mes, Planificación y Domingo exactamente a la altura de los días
-        const mondayHeight = Math.round(monday.getBoundingClientRect().height);
-        if (mondayHeight > 60) {
-            [miniCalendarCard, eventsBlock, sunday].forEach(el => {
-                if (el) {
-                    el.style.height = `${mondayHeight}px`;
-                    el.style.flex = `0 0 ${mondayHeight}px`;
-                    el.style.maxHeight = `${mondayHeight}px`;
-                    el.style.minHeight = `${mondayHeight}px`;
-                }
+        } else {
+            // En pantallas medianas y grandes, limpiar alturas fijas para que CSS flexbox distribuya
+            // exactamente un tercio a cada uno de los 3 bloques de forma simétrica y sin desbordar el viewport
+            document.querySelectorAll('.day-block').forEach(el => {
+                el.style.height = '';
+                el.style.flex = '';
+                el.style.maxHeight = '';
+                el.style.minHeight = '';
             });
         }
 

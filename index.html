@@ -18,13 +18,13 @@
     <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.15/locales-all.global.min.js"></script>
     <link rel="stylesheet" href="./css/style.css">
 </head>
-<body class="bg-light min-vh-100 d-flex flex-column p-2 p-md-3">
+<body class="bg-light d-flex flex-column">
     <!-- Bloque Superior (Header) -->
-    <header class="card shadow-sm border-0 mb-3" id="app-header">
-        <div class="card-body py-2 px-3 d-flex flex-column flex-sm-row justify-content-between align-items-sm-center gap-2">
+    <header class="card shadow-sm border-0 mb-2" id="app-header">
+        <div class="card-body py-1.5 px-3 d-flex flex-column flex-sm-row justify-content-between align-items-sm-center gap-2">
             <div class="d-flex align-items-center gap-2 flex-wrap">
-                <i class="bi bi-calendar3 fs-4 text-primary"></i>
-                <h1 id="current-date-label" class="h5 mb-0 fw-bold text-dark text-capitalize">Cargando semana...</h1>
+                <i class="bi bi-calendar3 fs-5 text-primary"></i>
+                <h1 id="current-date-label" class="h6 mb-0 fw-bold text-dark text-capitalize">Cargando semana...</h1>
                 <span id="sync-info-badge" class="badge bg-light text-muted border small d-inline-flex align-items-center gap-1 py-1 px-2" title="Los calendarios se consultan cada 15 min y se guardan en la base de datos">
                     <i class="bi bi-database-check text-success" id="sync-status-icon"></i>
                     <span id="sync-time-label">Base de datos al día</span>
@@ -36,11 +36,11 @@
                     <button type="button" class="btn btn-outline-primary fw-bold px-2 py-1 active" id="btn-lang-es" data-lang="es" title="Español">ES</button>
                     <button type="button" class="btn btn-outline-primary fw-bold px-2 py-1" id="btn-lang-en" data-lang="en" title="English">EN</button>
                 </div>
-                <button id="btn-refresh" class="btn btn-outline-primary btn-sm px-3 py-2 fw-semibold d-inline-flex align-items-center gap-2 shadow-sm" type="button" title="Forzar consulta a los calendarios y guardar en la base de datos">
+                <button id="btn-refresh" class="btn btn-outline-primary btn-sm px-2.5 py-1 fw-semibold d-inline-flex align-items-center gap-1.5 shadow-sm" type="button" title="Forzar consulta a los calendarios y guardar en la base de datos">
                     <i class="bi bi-arrow-clockwise" id="refresh-icon"></i>
                     <span id="refresh-text">Actualizar</span>
                 </button>
-                <button id="btn-settings" class="btn btn-primary btn-sm px-3 py-2 fw-semibold d-inline-flex align-items-center gap-2 shadow-sm" type="button" data-bs-toggle="modal" data-bs-target="#modal-calendars">
+                <button id="btn-settings" class="btn btn-primary btn-sm px-2.5 py-1 fw-semibold d-inline-flex align-items-center gap-1.5 shadow-sm" type="button" data-bs-toggle="modal" data-bs-target="#modal-calendars">
                     <i class="bi bi-gear-fill"></i>
                     <span id="settings-text">Configurar Calendarios</span>
                 </button>
@@ -49,7 +49,7 @@
     </header>
 
     <!-- Contenedor Principal Responsive -->
-    <div class="container-fluid px-0 flex-grow-1 d-flex flex-column">
+    <div class="container-fluid px-0 flex-grow-1 d-flex flex-column" id="main-content-container">
         <div class="row g-2 flex-grow-1">
             <!-- Columna 1: Vista Anual (12 Meses - Expandida en pantallas grandes) -->
             <div class="col-12 col-md-6 col-xl-3 col-annual-custom d-flex flex-column">
