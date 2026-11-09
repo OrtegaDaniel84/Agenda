@@ -98,7 +98,23 @@ document.addEventListener('DOMContentLoaded', function() {
             btnAutoTzLabel: 'Mi ubicación',
             jsonPersistenceInfo: 'Los eventos se convierten con exactitud al horario de tu ubicación (Europe/Madrid). Al cambiar de zona horaria, los eventos remotos se recalculan al instante.',
             tzUpdatedToast: (tz) => `Zona horaria establecida a ${tz}`,
-            headerTzTooltip: (tz) => `Hora en zona ${tz}`
+            headerTzTooltip: (tz) => `Hora en zona ${tz}`,
+
+            // Calendar 2.0 (Vista Expandida)
+            fullviewAppTitle: 'Calendar 2.0',
+            fullviewAppSubtitle: 'Planificador Anual & Eventos',
+            lblFullviewYear: 'Año',
+            lblFullviewMonth: 'Mes',
+            lblFullviewShow: 'Mostrar Meses',
+            btnFullviewUpdate: 'Actualizar Vista',
+            btnFullviewClose: 'Cerrar',
+            lblFullviewEventTypes: 'Tipos de Eventos',
+            lblFullviewStats: 'Estadísticas',
+            fullviewNewEventPlaceholder: 'Nuevo tipo de evento...',
+            btnFullviewAdd: 'Añadir',
+            fullviewHelp: 'Haz clic en cualquier día para marcarlo con el tipo de evento seleccionado. Vuelve a hacer clic para desmarcarlo.',
+            headerAnnualFullBtn: 'Calendar 2.0',
+            annualFullscreenTooltip: 'Expandir calendario a pantalla completa (Calendar 2.0)'
         },
         en: {
             pageTitle: 'Weekly Planner',
@@ -197,7 +213,23 @@ document.addEventListener('DOMContentLoaded', function() {
             btnAutoTzLabel: 'My location',
             jsonPersistenceInfo: 'Events are accurately converted to your location timezone (Europe/Madrid). When changing timezone, remote events are instantly recalculated.',
             tzUpdatedToast: (tz) => `Timezone updated to ${tz}`,
-            headerTzTooltip: (tz) => `Time in zone ${tz}`
+            headerTzTooltip: (tz) => `Time in zone ${tz}`,
+
+            // Calendar 2.0 (Expanded View)
+            fullviewAppTitle: 'Calendar 2.0',
+            fullviewAppSubtitle: 'Annual Planner & Events',
+            lblFullviewYear: 'Year',
+            lblFullviewMonth: 'Month',
+            lblFullviewShow: 'Show Months',
+            btnFullviewUpdate: 'Update View',
+            btnFullviewClose: 'Close',
+            lblFullviewEventTypes: 'Event Types',
+            lblFullviewStats: 'Statistics',
+            fullviewNewEventPlaceholder: 'New Event Name',
+            btnFullviewAdd: 'Add',
+            fullviewHelp: 'Click on any day to mark it with the active event type. Click again to unmark.',
+            headerAnnualFullBtn: 'Calendar 2.0',
+            annualFullscreenTooltip: 'Expand to full screen (Calendar 2.0)'
         }
     };
 
@@ -602,11 +634,14 @@ document.addEventListener('DOMContentLoaded', function() {
 
     function updateSingleAnnualDayCell(dateKey) {
         const cell = document.querySelector(`.annual-day-cell[data-date="${dateKey}"]`);
-        if (!cell) return;
+        const fullviewCell = document.querySelector(`.fullview-day-cell[data-date="${dateKey}"]`);
+        if (!cell && !fullviewCell) return;
 
-        const y = parseInt(cell.dataset.year, 10);
-        const m = parseInt(cell.dataset.month, 10);
-        const d = parseInt(cell.dataset.day, 10);
+        const parts = dateKey.split('-');
+        if (parts.length !== 3) return;
+        const y = parseInt(parts[0], 10);
+        const m = parseInt(parts[1], 10) - 1;
+        const d = parseInt(parts[2], 10);
         const today = getServerNow();
         const isToday = d === today.getDate() && m === today.getMonth() && y === today.getFullYear();
         const isSunday = new Date(y, m, d).getDay() === 0;
@@ -615,30 +650,53 @@ document.addEventListener('DOMContentLoaded', function() {
         const assignedEvents = eventIds.map(id => planningEventsList.find(e => e.id === id)).filter(Boolean);
         const visibleEvents = assignedEvents.slice(0, 4);
         const hasMarks = visibleEvents.length > 0;
-
-        let cellClass = 'annual-day-cell';
-        if (isToday) {
-            cellClass += ' annual-today';
-        } else if (isSunday) {
-            cellClass += ' text-danger fw-bold annual-sunday';
-        }
-        if (hasMarks) {
-            cellClass += ' has-planning-marks';
-            const bg = getPlanningDayBackground(visibleEvents.map(e => e.color));
-            cell.style.background = bg;
-        } else {
-            cell.style.background = '';
-        }
-        cell.className = cellClass;
+        const bg = hasMarks ? getPlanningDayBackground(visibleEvents.map(e => e.color)) : '';
 
         const t = I18N[currentLang];
         let tooltipText = t.dateTooltip(d, t.months[m], y);
         if (hasMarks) {
             tooltipText += ` - ${visibleEvents.map(e => e.title).join(', ')}`;
         }
-        cell.title = tooltipText;
 
-        cell.innerHTML = `<span class="annual-day-number">${d}</span>`;
+        if (cell) {
+            let cellClass = 'annual-day-cell';
+            if (isToday) {
+                cellClass += ' annual-today';
+            } else if (isSunday) {
+                cellClass += ' text-danger fw-bold annual-sunday';
+            }
+            if (hasMarks) {
+                cellClass += ' has-planning-marks';
+                cell.style.background = bg;
+            } else {
+                cell.style.background = '';
+            }
+            cell.className = cellClass;
+            cell.title = tooltipText;
+            cell.innerHTML = `<span class="annual-day-number">${d}</span>`;
+        }
+
+        if (fullviewCell) {
+            let fullClass = 'fullview-day-cell';
+            if (isToday) {
+                fullClass += ' fullview-today';
+            } else if (isSunday) {
+                fullClass += ' fullview-sunday';
+            }
+            if (hasMarks) {
+                fullClass += ' has-planning-marks';
+                fullviewCell.style.background = bg;
+            } else {
+                fullviewCell.style.background = '';
+            }
+            fullviewCell.className = fullClass;
+            fullviewCell.title = tooltipText;
+            fullviewCell.innerHTML = `<span>${d}</span>`;
+        }
+
+        if (typeof isFullviewOpen !== 'undefined' && isFullviewOpen && typeof renderFullviewStats === 'function') {
+            renderFullviewStats();
+        }
     }
 
     renderAnnualCalendar();
@@ -1620,6 +1678,40 @@ document.addEventListener('DOMContentLoaded', function() {
         if (tzBadge && t.headerTzTooltip) {
             tzBadge.title = t.headerTzTooltip(serverTimeZone || 'UTC');
         }
+
+        // Calendar 2.0 (Vista Expandida)
+        const headerAnnualFullText = document.getElementById('header-annual-full-text');
+        if (headerAnnualFullText) headerAnnualFullText.textContent = t.headerAnnualFullBtn || 'Calendar 2.0';
+        const btnOpenAnnualFull = document.getElementById('btn-open-annual-full');
+        if (btnOpenAnnualFull && t.annualFullscreenTooltip) btnOpenAnnualFull.title = t.annualFullscreenTooltip;
+        const btnAnnualFullCard = document.getElementById('btn-annual-fullscreen');
+        if (btnAnnualFullCard && t.annualFullscreenTooltip) btnAnnualFullCard.title = t.annualFullscreenTooltip;
+
+        const fullviewAppTitle = document.getElementById('fullview-app-title');
+        if (fullviewAppTitle) fullviewAppTitle.textContent = t.fullviewAppTitle;
+        const lblFullviewYear = document.getElementById('lbl-fullview-year');
+        if (lblFullviewYear) lblFullviewYear.textContent = t.lblFullviewYear;
+        const lblFullviewMonth = document.getElementById('lbl-fullview-month');
+        if (lblFullviewMonth) lblFullviewMonth.textContent = t.lblFullviewMonth;
+        const lblFullviewShow = document.getElementById('lbl-fullview-show');
+        if (lblFullviewShow) lblFullviewShow.textContent = t.lblFullviewShow;
+        const btnFullviewUpdateText = document.getElementById('btn-fullview-update-text');
+        if (btnFullviewUpdateText) btnFullviewUpdateText.textContent = t.btnFullviewUpdate;
+        const btnFullviewCloseText = document.getElementById('btn-fullview-close-text');
+        if (btnFullviewCloseText) btnFullviewCloseText.textContent = t.btnFullviewClose;
+        const lblFullviewEventTypes = document.getElementById('lbl-fullview-event-types');
+        if (lblFullviewEventTypes) {
+            const countBadge = document.getElementById('fullview-types-count');
+            lblFullviewEventTypes.innerHTML = `<span>${t.lblFullviewEventTypes}</span>${countBadge ? countBadge.outerHTML : ''}`;
+        }
+        const lblFullviewStats = document.getElementById('lbl-fullview-stats');
+        if (lblFullviewStats) lblFullviewStats.textContent = t.lblFullviewStats;
+        const fullviewNewTitle = document.getElementById('fullview-new-title');
+        if (fullviewNewTitle) fullviewNewTitle.placeholder = t.fullviewNewEventPlaceholder;
+        const btnFullviewAddEvent = document.getElementById('btn-fullview-add-event');
+        if (btnFullviewAddEvent) btnFullviewAddEvent.textContent = t.btnFullviewAdd;
+        const fullviewHelpText = document.getElementById('fullview-help-text');
+        if (fullviewHelpText) fullviewHelpText.textContent = t.fullviewHelp;
     }
 
     // Sistema de notificación toast flotante discreto
@@ -1758,6 +1850,364 @@ document.addEventListener('DOMContentLoaded', function() {
                 }
             }
         }, { passive: true });
+    }
+
+    // ==========================================================
+    // 8. Calendar 2.0: Módulo de Calendario Anual a Pantalla Completa
+    // ==========================================================
+    let isFullviewOpen = false;
+    let fullviewYear = getServerNow().getFullYear();
+    let fullviewMonth = getServerNow().getMonth();
+    let fullviewShowMonths = 12;
+
+    const annualFullscreenOverlay = document.getElementById('annual-fullscreen-overlay');
+    const btnOpenAnnualFullHeader = document.getElementById('btn-open-annual-full');
+    const btnAnnualFullscreenCard = document.getElementById('btn-annual-fullscreen');
+    const btnFullviewClose = document.getElementById('btn-fullview-close');
+    const btnFullviewUpdate = document.getElementById('btn-fullview-update');
+    const fullviewYearInput = document.getElementById('fullview-year-input');
+    const fullviewMonthSelect = document.getElementById('fullview-month-select');
+    const fullviewShowMonthsInput = document.getElementById('fullview-show-months');
+    const formFullviewAddEvent = document.getElementById('form-fullview-add-event');
+    const fullviewMonthsGrid = document.getElementById('fullview-months-grid');
+    const fullviewEventsList = document.getElementById('fullview-events-list');
+    const fullviewStatsList = document.getElementById('fullview-stats-list');
+
+    function populateFullviewControls() {
+        const t = I18N[currentLang];
+        if (fullviewYearInput) {
+            fullviewYearInput.value = fullviewYear;
+        }
+        if (fullviewShowMonthsInput) {
+            fullviewShowMonthsInput.value = fullviewShowMonths;
+        }
+        if (fullviewMonthSelect) {
+            fullviewMonthSelect.innerHTML = '';
+            t.months.forEach((name, idx) => {
+                const opt = document.createElement('option');
+                opt.value = idx;
+                opt.textContent = name;
+                if (idx === fullviewMonth) {
+                    opt.selected = true;
+                }
+                fullviewMonthSelect.appendChild(opt);
+            });
+        }
+    }
+
+    function openAnnualFullscreen() {
+        isFullviewOpen = true;
+        const now = getServerNow();
+        const baseYear = now.getFullYear();
+        const firstVisibleMonthDate = new Date(baseYear, annualOffsetMonths, 1);
+        fullviewYear = firstVisibleMonthDate.getFullYear();
+        fullviewMonth = firstVisibleMonthDate.getMonth();
+
+        populateFullviewControls();
+        renderFullviewMonths();
+        renderFullviewEventTypes();
+        renderFullviewStats();
+
+        if (annualFullscreenOverlay) {
+            annualFullscreenOverlay.classList.remove('d-none');
+        }
+        document.body.style.overflow = 'hidden';
+    }
+
+    function closeAnnualFullscreen() {
+        isFullviewOpen = false;
+        if (annualFullscreenOverlay) {
+            annualFullscreenOverlay.classList.add('d-none');
+        }
+        document.body.style.overflow = '';
+
+        // Sincronizar vista estándar al salir
+        renderAnnualCalendar();
+        renderPlanningEvents();
+        updatePlanningEventsDayCounts();
+    }
+
+    function renderFullviewMonths() {
+        if (!fullviewMonthsGrid) return;
+        fullviewMonthsGrid.innerHTML = '';
+        const t = I18N[currentLang];
+        const months = t.months;
+        const daysShort = t.daysShort;
+        const today = getServerNow();
+
+        const count = Math.max(1, Math.min(36, parseInt(fullviewShowMonths, 10) || 12));
+
+        for (let i = 0; i < count; i++) {
+            const currentMonthDate = new Date(fullviewYear, fullviewMonth + i, 1);
+            const mYear = currentMonthDate.getFullYear();
+            const mIndex = currentMonthDate.getMonth();
+            const monthName = months[mIndex];
+
+            const card = document.createElement('div');
+            card.className = 'fullview-month-card';
+
+            const titleEl = document.createElement('div');
+            titleEl.className = 'fullview-month-title';
+            titleEl.textContent = `${monthName} ${mYear}`;
+            card.appendChild(titleEl);
+
+            const gridEl = document.createElement('div');
+            gridEl.className = 'fullview-days-grid';
+
+            // Cabeceras de días (Sun a Sat)
+            daysShort.forEach((d, index) => {
+                const headerCell = document.createElement('div');
+                headerCell.className = `fullview-day-header ${index === 0 ? 'text-danger fw-bold' : (index === 6 ? 'fw-bold text-secondary' : '')}`;
+                headerCell.textContent = d;
+                gridEl.appendChild(headerCell);
+            });
+
+            // Espacios vacíos iniciales
+            const firstDay = new Date(mYear, mIndex, 1).getDay();
+            const totalDays = new Date(mYear, mIndex + 1, 0).getDate();
+
+            for (let emptyIdx = 0; emptyIdx < firstDay; emptyIdx++) {
+                const emptyCell = document.createElement('span');
+                emptyCell.className = 'fullview-empty-cell';
+                gridEl.appendChild(emptyCell);
+            }
+
+            // Días del mes
+            for (let day = 1; day <= totalDays; day++) {
+                const currentDayOfWeek = new Date(mYear, mIndex, day).getDay();
+                const isToday = day === today.getDate() && mIndex === today.getMonth() && mYear === today.getFullYear();
+                const isSunday = currentDayOfWeek === 0;
+                const dateKey = getDateKey(mYear, mIndex, day);
+
+                const eventIds = planningMarks[dateKey] || [];
+                const assignedEvents = eventIds.map(id => planningEventsList.find(e => e.id === id)).filter(Boolean);
+                const visibleEvents = assignedEvents.slice(0, 4);
+                const hasMarks = visibleEvents.length > 0;
+
+                const dayCell = document.createElement('span');
+                let cellClass = 'fullview-day-cell';
+                if (isToday) {
+                    cellClass += ' fullview-today';
+                } else if (isSunday) {
+                    cellClass += ' fullview-sunday';
+                }
+                if (hasMarks) {
+                    cellClass += ' has-planning-marks';
+                    dayCell.style.background = getPlanningDayBackground(visibleEvents.map(e => e.color));
+                }
+                dayCell.className = cellClass;
+                dayCell.dataset.date = dateKey;
+                dayCell.dataset.year = mYear;
+                dayCell.dataset.month = mIndex;
+                dayCell.dataset.day = day;
+
+                let tooltipText = t.dateTooltip(day, monthName, mYear);
+                if (hasMarks) {
+                    tooltipText += ` - ${visibleEvents.map(e => e.title).join(', ')}`;
+                }
+                dayCell.title = tooltipText;
+                dayCell.innerHTML = `<span>${day}</span>`;
+
+                // Interacción al hacer clic: marcar o desmarcar con el tipo de evento activo
+                dayCell.addEventListener('click', async (e) => {
+                    e.stopPropagation();
+                    let targetEventId = selectedPlanningEventId;
+
+                    // Si no hay evento seleccionado pero existen tipos creados, seleccionar el primero automáticamente
+                    if (!targetEventId && planningEventsList.length > 0) {
+                        targetEventId = planningEventsList[0].id;
+                        selectPlanningEvent(targetEventId);
+                        renderFullviewEventTypes();
+                    }
+
+                    if (targetEventId) {
+                        await toggleDatePlanningMark(dateKey, targetEventId);
+                        renderFullviewStats();
+                    } else {
+                        showToastNotification(currentLang === 'es' ? 'Crea primero un tipo de evento en el panel derecho' : 'Create an event type in the right panel first');
+                    }
+                });
+
+                gridEl.appendChild(dayCell);
+            }
+
+            card.appendChild(gridEl);
+            fullviewMonthsGrid.appendChild(card);
+        }
+    }
+
+    function renderFullviewEventTypes() {
+        if (!fullviewEventsList) return;
+        fullviewEventsList.innerHTML = '';
+        const t = I18N[currentLang];
+
+        const countBadge = document.getElementById('fullview-types-count');
+        if (countBadge) countBadge.textContent = planningEventsList.length;
+
+        if (planningEventsList.length === 0) {
+            fullviewEventsList.innerHTML = `
+                <div class="text-center text-muted small py-3 px-2 border rounded-3 bg-light-subtle">
+                    <i class="bi bi-tag d-block fs-5 mb-1 opacity-50"></i>
+                    <span>${t.noPlanningEvents}</span>
+                </div>
+            `;
+            return;
+        }
+
+        planningEventsList.forEach(ev => {
+            const isSelected = selectedPlanningEventId === ev.id;
+            const item = document.createElement('div');
+            item.className = `fullview-event-item ${isSelected ? 'is-selected' : ''}`;
+            item.dataset.id = ev.id;
+            item.setAttribute('role', 'button');
+            item.setAttribute('title', isSelected ? t.clickToDeselect : t.clickToSelect);
+            item.innerHTML = `
+                <span class="fullview-color-dot" style="background-color: ${ev.color};"></span>
+                <span class="fullview-event-title">${ev.title}</span>
+                <button type="button" class="fullview-event-delete-btn" title="${t.deleteEvent}">
+                    <i class="bi bi-x-lg"></i>
+                </button>
+            `;
+
+            item.addEventListener('click', (e) => {
+                if (e.target.closest('.fullview-event-delete-btn')) return;
+                selectPlanningEvent(ev.id);
+                renderFullviewEventTypes();
+                renderFullviewStats();
+            });
+
+            const deleteBtn = item.querySelector('.fullview-event-delete-btn');
+            if (deleteBtn) {
+                deleteBtn.addEventListener('click', async (e) => {
+                    e.stopPropagation();
+                    await deletePlanningEvent(ev.id);
+                    renderFullviewEventTypes();
+                    renderFullviewStats();
+                    renderFullviewMonths();
+                });
+            }
+
+            fullviewEventsList.appendChild(item);
+        });
+    }
+
+    function renderFullviewStats() {
+        if (!fullviewStatsList) return;
+        fullviewStatsList.innerHTML = '';
+        const t = I18N[currentLang];
+
+        if (planningEventsList.length === 0) {
+            fullviewStatsList.innerHTML = `
+                <div class="text-muted small py-2 text-center opacity-75">
+                    —
+                </div>
+            `;
+            return;
+        }
+
+        planningEventsList.forEach(ev => {
+            const count = countDaysForPlanningEvent(ev.id);
+            const row = document.createElement('div');
+            row.className = 'fullview-stat-row';
+            row.innerHTML = `
+                <span class="fullview-stat-title d-inline-flex align-items-center gap-1.5">
+                    <span class="d-inline-block rounded-circle" style="width: 10px; height: 10px; background-color: ${ev.color};"></span>
+                    ${ev.title}:
+                </span>
+                <span class="fullview-stat-count">${count} ${t.dayUnit(count)}</span>
+            `;
+            fullviewStatsList.appendChild(row);
+        });
+    }
+
+    // Listeners para Calendar 2.0
+    if (btnOpenAnnualFullHeader) {
+        btnOpenAnnualFullHeader.addEventListener('click', openAnnualFullscreen);
+    }
+    if (btnAnnualFullscreenCard) {
+        btnAnnualFullscreenCard.addEventListener('click', openAnnualFullscreen);
+    }
+    if (btnFullviewClose) {
+        btnFullviewClose.addEventListener('click', closeAnnualFullscreen);
+    }
+
+    // Tecla Escape para salir de pantalla completa
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && isFullviewOpen) {
+            closeAnnualFullscreen();
+        }
+    });
+
+    // Actualizar vista según controles de año, mes y cantidad de meses
+    if (btnFullviewUpdate) {
+        btnFullviewUpdate.addEventListener('click', () => {
+            if (fullviewYearInput) {
+                fullviewYear = parseInt(fullviewYearInput.value, 10) || getServerNow().getFullYear();
+            }
+            if (fullviewMonthSelect) {
+                fullviewMonth = parseInt(fullviewMonthSelect.value, 10) || 0;
+            }
+            if (fullviewShowMonthsInput) {
+                fullviewShowMonths = parseInt(fullviewShowMonthsInput.value, 10) || 12;
+            }
+            renderFullviewMonths();
+        });
+    }
+
+    if (fullviewMonthSelect) {
+        fullviewMonthSelect.addEventListener('change', () => {
+            fullviewMonth = parseInt(fullviewMonthSelect.value, 10) || 0;
+            renderFullviewMonths();
+        });
+    }
+    if (fullviewYearInput) {
+        fullviewYearInput.addEventListener('change', () => {
+            fullviewYear = parseInt(fullviewYearInput.value, 10) || getServerNow().getFullYear();
+            renderFullviewMonths();
+        });
+    }
+    if (fullviewShowMonthsInput) {
+        fullviewShowMonthsInput.addEventListener('change', () => {
+            fullviewShowMonths = parseInt(fullviewShowMonthsInput.value, 10) || 12;
+            renderFullviewMonths();
+        });
+    }
+
+    // Añadir nuevo evento desde Calendar 2.0
+    if (formFullviewAddEvent) {
+        formFullviewAddEvent.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const titleEl = document.getElementById('fullview-new-title');
+            const colorEl = document.getElementById('fullview-new-color');
+            if (!titleEl || !titleEl.value.trim()) return;
+
+            const payload = {
+                title: titleEl.value.trim(),
+                color: colorEl ? colorEl.value : '#0d6efd'
+            };
+
+            try {
+                const res = await fetch('/api/planning-events', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                if (res.ok) {
+                    const data = await res.json();
+                    if (data.event) {
+                        planningEventsList.push(data.event);
+                        selectPlanningEvent(data.event.id);
+                        renderPlanningEvents();
+                        renderAnnualCalendar();
+                        renderFullviewEventTypes();
+                        renderFullviewStats();
+                    }
+                    titleEl.value = '';
+                }
+            } catch (err) {
+                console.error('[Agenda] Error creando evento desde Calendar 2.0:', err);
+            }
+        });
     }
 
     // Carga inicial
