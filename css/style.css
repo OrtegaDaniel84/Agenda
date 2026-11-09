@@ -534,7 +534,8 @@ html, body {
     scrollbar-color: rgba(0, 0, 0, 0.15) transparent;
     overflow-x: hidden !important;
     overflow-y: auto !important;
-    padding: 0.3rem 0.4rem !important;
+    padding: 0.4rem 0.45rem !important;
+    background-color: #f8fafc;
     flex: 1 1 0 !important;
     min-height: 0 !important;
 }
@@ -552,21 +553,30 @@ html, body {
     display: grid;
     /* Configuración fija de 3 columnas para aprovechar el ancho */
     grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
-    gap: 0.35rem 0.35rem;
+    gap: 0.45rem 0.4rem;
     align-content: start;
     width: 100%;
     box-sizing: border-box;
 }
 
+/* Meses diseñados como "bloques" (tarjetas individuales bien definidas) */
 .annual-month {
     display: flex;
     flex-direction: column;
     min-width: 0;
     width: 100%;
-    overflow: hidden; /* Evita que los días de un mes se salgan a invadir otro */
     background: #ffffff;
-    border-radius: 5px;
-    padding: 2px 1px;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    padding: 6px 4px 6px 4px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+    transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
+    box-sizing: border-box;
+}
+
+.annual-month:hover {
+    border-color: #cbd5e1;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.07);
 }
 
 /* Botones de navegación del calendario anual (desplazamiento de 3 meses) - Tamaño estrictamente fijo */
@@ -636,13 +646,15 @@ html, body {
 }
 
 .annual-month-title {
-    font-size: 0.74rem;
+    font-size: 0.78rem;
     font-weight: 700;
     text-align: center;
-    color: #0f172a;
-    margin-bottom: 2px;
-    height: 16px;
-    line-height: 16px;
+    color: #1e293b;
+    margin-bottom: 4px;
+    padding-bottom: 3px;
+    border-bottom: 1px solid #f1f5f9;
+    height: 19px;
+    line-height: 19px;
     letter-spacing: -0.01em;
     white-space: nowrap;
     overflow: hidden;
@@ -650,32 +662,34 @@ html, body {
 }
 
 .annual-month-year {
-    font-size: 0.63rem;
-    font-weight: 500;
-    margin-left: 2px;
-    opacity: 0.75;
+    font-size: 0.68rem;
+    font-weight: 600;
+    color: #64748b;
+    margin-left: 3px;
 }
 
 .annual-days-grid {
     display: grid;
-    /* 7 columnas exactas con minmax(0, 1fr) para que NUNCA empujen fuera del mes */
+    /* 7 columnas exactas con minmax(0, 1fr) */
     grid-template-columns: repeat(7, minmax(0, 1fr)) !important;
     width: 100%;
     text-align: center;
     line-height: 1;
-    row-gap: 1.5px;
-    column-gap: 0;
+    row-gap: 2px;
+    column-gap: 1px;
     align-items: center;
     justify-items: center;
     box-sizing: border-box;
 }
 
 .annual-days-header {
-    font-size: 0.62rem;
-    font-weight: 600;
-    margin-bottom: 1px;
+    font-size: 0.66rem;
+    font-weight: 700;
+    margin-bottom: 2px;
+    padding-bottom: 1px;
     user-select: none;
     line-height: 1.1;
+    color: #64748b;
 }
 
 .annual-day-header-cell {
@@ -683,22 +697,23 @@ html, body {
     align-items: center;
     justify-content: center;
     width: 100%;
-    height: 13.5px;
+    height: 14px;
 }
 
+/* Números más grandes y celdas más amplias y cómodas */
 .annual-day-cell {
     width: 100%;
-    max-width: 18px;
-    height: 18px;
+    max-width: 24px;
+    height: 22px;
     margin: 0 auto;
     display: flex;
     align-items: center;
     justify-content: center;
     position: relative;
-    border-radius: 3px;
+    border-radius: 4px;
     cursor: pointer;
     transition: transform 0.12s ease, box-shadow 0.12s ease, background-color 0.12s ease;
-    font-size: 0.70rem;
+    font-size: 0.80rem;
     line-height: 1;
     font-variant-numeric: tabular-nums;
     user-select: none;
@@ -721,8 +736,8 @@ html, body {
 .annual-empty-cell {
     display: block;
     width: 100%;
-    max-width: 18px;
-    height: 18px;
+    max-width: 24px;
+    height: 22px;
 }
 
 .annual-day-cell:hover:not(.annual-today):not(.has-planning-marks) {
@@ -745,7 +760,7 @@ body.marking-mode-active #annual-calendar .annual-day-cell:hover {
 
 /* Días marcados con eventos de planificación: Cuadrado redondeado de color con división */
 .annual-day-cell.has-planning-marks {
-    border-radius: 3px !important;
+    border-radius: 4px !important;
     box-shadow: 0 1px 2px rgba(0, 0, 0, 0.25);
     transition: transform 0.12s ease, box-shadow 0.12s ease;
 }
@@ -759,7 +774,7 @@ body.marking-mode-active #annual-calendar .annual-day-cell:hover {
 /* Número en días marcados: estilo limpio sin negrita ni línea/sombra negra */
 .annual-day-cell.has-planning-marks .annual-day-number {
     color: #ffffff !important;
-    font-weight: normal !important;
+    font-weight: 600 !important;
     text-shadow: none !important;
 }
 
@@ -773,18 +788,18 @@ body.marking-mode-active #annual-calendar .annual-day-cell:hover {
     background-color: #0d6efd !important;
     color: #ffffff !important;
     font-weight: bold;
-    border-radius: 3px !important;
+    border-radius: 4px !important;
     box-shadow: 0 1px 2px rgba(13, 110, 253, 0.4);
 }
 
-/* Día actual con marcas de planificación: Mantiene el color/división del evento y añade anillo destacado */
+/* Día actual con marcas de planificación */
 .annual-today.has-planning-marks {
     box-shadow: 0 0 0 2px #ffffff, 0 0 0 3px #0d6efd, 0 1px 3px rgba(0, 0, 0, 0.3) !important;
-    border-radius: 3px !important;
+    border-radius: 4px !important;
 }
 
 /* ==========================================================
-   Escalado Inteligente: Solo escala si hay suficiente ALTURA y ANCHO en pantalla
+   Escalado Inteligente por Ancho de Tarjeta (Container Queries)
    ========================================================== */
 
 /* En pantallas móviles pequeñas (< 260px) usar 2 columnas */
@@ -795,44 +810,51 @@ body.marking-mode-active #annual-calendar .annual-day-cell:hover {
     }
 }
 
-/* Pantallas con altura generosa (>= 750px de altura en la tarjeta) */
-@container annualcard (min-width: 380px) and (min-height: 750px) {
+/* Tarjeta con ancho estándar amplio (>= 400px de ancho) */
+@container annualcard (min-width: 400px) {
     .annual-months-grid {
-        gap: 0.45rem 0.4rem;
+        gap: 0.55rem 0.45rem;
+    }
+    .annual-month {
+        padding: 7px 5px 7px 5px;
     }
     .annual-month-title {
-        font-size: 0.8rem;
-        height: 18px;
-        line-height: 18px;
-        margin-bottom: 3px;
-    }
-    .annual-days-header {
-        font-size: 0.66rem;
-    }
-    .annual-day-header-cell {
-        height: 15px;
-    }
-    .annual-day-cell, .annual-empty-cell {
-        max-width: 20px;
-        height: 19px;
-        font-size: 0.74rem;
-    }
-}
-
-/* Pantallas muy altas (>= 860px de altura en la tarjeta) */
-@container annualcard (min-width: 460px) and (min-height: 860px) {
-    .annual-months-grid {
-        gap: 0.6rem 0.5rem;
-    }
-    .annual-month-title {
-        font-size: 0.86rem;
+        font-size: 0.82rem;
         height: 20px;
         line-height: 20px;
-        margin-bottom: 4px;
-        font-weight: 800;
+        margin-bottom: 5px;
     }
     .annual-days-header {
         font-size: 0.70rem;
+    }
+    .annual-day-header-cell {
+        height: 16px;
+    }
+    .annual-day-cell, .annual-empty-cell {
+        max-width: 26px;
+        height: 23px;
+        font-size: 0.83rem;
+    }
+}
+
+/* Tarjeta en pantallas grandes (>= 480px de ancho, ej: monitores 1080p con 39% de columna) */
+@container annualcard (min-width: 480px) {
+    .annual-months-grid {
+        gap: 0.65rem 0.55rem;
+    }
+    .annual-month {
+        padding: 8px 6px 8px 6px;
+        border-radius: 9px;
+    }
+    .annual-month-title {
+        font-size: 0.86rem;
+        height: 21px;
+        line-height: 21px;
+        margin-bottom: 5px;
+    }
+    .annual-days-header {
+        font-size: 0.72rem;
+        margin-bottom: 3px;
     }
     .annual-day-header-cell {
         height: 17px;
@@ -841,9 +863,9 @@ body.marking-mode-active #annual-calendar .annual-day-cell:hover {
         row-gap: 2.5px;
     }
     .annual-day-cell, .annual-empty-cell {
-        max-width: 22px;
-        height: 21px;
-        font-size: 0.78rem;
+        max-width: 28px;
+        height: 25px;
+        font-size: 0.87rem;
     }
 }
 
